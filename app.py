@@ -1490,6 +1490,20 @@ def stripe_webhook():
     return jsonify({'status': 'success'}), 200
 
 # ============================================
+# HEALTH CHECK ENDPOINT
+# ============================================
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for uptime monitoring"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'database': 'postgresql' if db.use_postgres else 'sqlite',
+        'version': '1.0.0'
+    }), 200
+
+# ============================================
 # MEETING MANAGEMENT ROUTES
 # ============================================
 
