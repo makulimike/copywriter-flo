@@ -1,3 +1,5 @@
+# database.py - Updated version with proper PostgreSQL row handling
+
 import os
 import sys
 from datetime import datetime
@@ -28,7 +30,8 @@ class Database:
     @contextmanager
     def get_connection(self):
         if self.use_postgres:
-            conn = psycopg2.connect(self.database_url)
+            # Use RealDictCursor to get dictionary-like rows
+            conn = psycopg2.connect(self.database_url, cursor_factory=RealDictCursor)
             conn.autocommit = False
             try:
                 yield conn
@@ -47,12 +50,24 @@ class Database:
             finally:
                 conn.close()
     
-    def _execute(self, cursor, query, params):
-        """Helper to handle SQL parameter placeholders"""
+    def _row_to_dict(self, row):
+        """Convert database row to dictionary consistently"""
+        if row is None:
+            return None
+        if isinstance(row, dict):
+            return row
+        if hasattr(row, 'keys'):
+            return {k: row[k] for k in row.keys()}
+        return dict(row)
+    
+    def _execute(self, cursor, query, params=None):
+        """Helper to execute queries with parameter placeholders"""
         if self.use_postgres:
             # Convert ? to %s for PostgreSQL
             query = query.replace('?', '%s')
-        return cursor.execute(query, params)
+        if params:
+            return cursor.execute(query, params)
+        return cursor.execute(query)
     
     def init_db(self):
         with self.get_connection() as conn:
@@ -207,7 +222,7 @@ class Database:
                 ''')
                 
             else:
-                # SQLite syntax
+                # SQLite syntax (existing code)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -368,7 +383,7 @@ class Database:
                     INSERT INTO users (username, password, email, phone, whatsapp_number, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
                 ''', (username, password, email, phone, whatsapp_number, created_at))
-                user_id = cursor.fetchone()[0]
+                user_id = cursor.fetchone()['id']
             else:
                 cursor.execute('''
                     INSERT INTO users (username, password, email, phone, whatsapp_number, created_at)
@@ -405,9 +420,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
             result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     def get_user(self, user_id):
         with self.get_connection() as conn:
@@ -417,9 +430,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
             result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     # ============================================
     # API SETTINGS METHODS
@@ -447,9 +458,7 @@ class Database:
                     ''', (user_id, datetime.now().isoformat()))
                     cursor.execute('SELECT * FROM api_settings WHERE user_id = ?', (user_id,))
                 result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     def update_api_settings(self, user_id, **kwargs):
         with self.get_connection() as conn:
@@ -484,9 +493,7 @@ class Database:
                     cursor.execute('INSERT OR IGNORE INTO notifications (user_id, email_enabled) VALUES (?, 1)', (user_id,))
                     cursor.execute('SELECT * FROM notifications WHERE user_id = ?', (user_id,))
                 result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     def update_notification_settings(self, user_id, **kwargs):
         with self.get_connection() as conn:
@@ -513,7 +520,7 @@ class Database:
                     INSERT INTO campaigns (user_id, name, industry, script, default_location, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
                 ''', (user_id, name, industry, script, default_location, created_at))
-                campaign_id = cursor.fetchone()[0]
+                campaign_id = cursor.fetchone()['id']
             else:
                 cursor.execute('''
                     INSERT INTO campaigns (user_id, name, industry, script, default_location, created_at)
@@ -530,9 +537,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM campaigns WHERE user_id = ? ORDER BY created_at DESC', (user_id,))
             results = cursor.fetchall()
-            if not self.use_postgres:
-                return [{k: r[k] for k in r.keys()} for r in results]
-            return results
+            return [self._row_to_dict(r) for r in results] if results else []
     
     def get_campaign(self, campaign_id):
         with self.get_connection() as conn:
@@ -542,9 +547,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM campaigns WHERE id = ?', (campaign_id,))
             result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     def delete_campaign(self, campaign_id):
         with self.get_connection() as conn:
@@ -599,9 +602,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM leads WHERE campaign_id = ? ORDER BY score DESC, created_at ASC', (campaign_id,))
             results = cursor.fetchall()
-            if not self.use_postgres:
-                return [{k: r[k] for k in r.keys()} for r in results]
-            return results
+            return [self._row_to_dict(r) for r in results] if results else []
     
     def get_lead(self, lead_id):
         with self.get_connection() as conn:
@@ -611,9 +612,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM leads WHERE id = ?', (lead_id,))
             result = cursor.fetchone()
-            if result and not self.use_postgres:
-                return {k: result[k] for k in result.keys()}
-            return result
+            return self._row_to_dict(result)
     
     def update_lead(self, lead_id, **kwargs):
         with self.get_connection() as conn:
@@ -698,7 +697,7 @@ class Database:
                     INSERT INTO messages (lead_id, subject, content, status)
                     VALUES (%s, %s, %s, %s) RETURNING id
                 ''', (lead_id, subject, content, status))
-                return cursor.fetchone()[0]
+                return cursor.fetchone()['id']
             else:
                 cursor.execute('''
                     INSERT INTO messages (lead_id, subject, content, status)
@@ -714,9 +713,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM messages WHERE lead_id = ? ORDER BY sent_at DESC', (lead_id,))
             results = cursor.fetchall()
-            if not self.use_postgres:
-                return [{k: r[k] for k in r.keys()} for r in results]
-            return results
+            return [self._row_to_dict(r) for r in results] if results else []
     
     # ============================================
     # BUSINESS SEARCH METHODS
@@ -746,9 +743,7 @@ class Database:
             else:
                 cursor.execute('SELECT * FROM business_searches WHERE campaign_id = ? ORDER BY created_at DESC', (campaign_id,))
             results = cursor.fetchall()
-            if not self.use_postgres:
-                return [{k: r[k] for k in r.keys()} for r in results]
-            return results
+            return [self._row_to_dict(r) for r in results] if results else []
     
     # ============================================
     # STATS METHODS
@@ -760,25 +755,25 @@ class Database:
             
             if self.use_postgres:
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s', (campaign_id,))
-                total_leads = cursor.fetchone()[0]
+                total_leads = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND score >= 7', (campaign_id,))
-                hot_leads = cursor.fetchone()[0]
+                hot_leads = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND email_sent = 1', (campaign_id,))
-                messages_sent = cursor.fetchone()[0]
+                messages_sent = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND replied = 1', (campaign_id,))
-                replies = cursor.fetchone()[0]
+                replies = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND opened = 1', (campaign_id,))
-                opens = cursor.fetchone()[0]
+                opens = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND meeting_scheduled = 1', (campaign_id,))
-                meetings = cursor.fetchone()[0]
+                meetings = cursor.fetchone()['count']
                 
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = %s AND website_analyzed = 1', (campaign_id,))
-                websites_analyzed = cursor.fetchone()[0]
+                websites_analyzed = cursor.fetchone()['count']
             else:
                 cursor.execute('SELECT COUNT(*) FROM leads WHERE campaign_id = ?', (campaign_id,))
                 total_leads = cursor.fetchone()[0]
@@ -831,9 +826,7 @@ class Database:
                     LIMIT 50
                 ''', (user_id,))
             results = cursor.fetchall()
-            if not self.use_postgres:
-                return [{k: r[k] for k in r.keys()} for r in results]
-            return results
+            return [self._row_to_dict(r) for r in results] if results else []
     
     # ============================================
     # PAYMENT & ACCESS METHODS
@@ -847,7 +840,12 @@ class Database:
             else:
                 cursor.execute('SELECT has_lifetime_access FROM user_access WHERE user_id = ?', (user_id,))
             result = cursor.fetchone()
-            return result is not None and result[0] == 1
+            if result:
+                if self.use_postgres:
+                    return result['has_lifetime_access'] == 1
+                else:
+                    return result[0] == 1
+            return False
     
     def grant_lifetime_access(self, user_id):
         with self.get_connection() as conn:
@@ -890,7 +888,7 @@ class Database:
                 ''', (user_id,))
             result = cursor.fetchone()
             if result:
-                if not self.use_postgres:
+                if self.use_postgres:
                     return {
                         'has_access': result['has_lifetime_access'] == 1,
                         'granted_at': result['access_granted_at'],
@@ -918,7 +916,7 @@ class Database:
                     INSERT INTO payments (user_id, stripe_session_id, stripe_payment_intent, amount, currency, payment_date)
                     VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
                 ''', (user_id, session_id, payment_intent, amount, currency, datetime.now().isoformat()))
-                payment_id = cursor.fetchone()[0]
+                payment_id = cursor.fetchone()['id']
                 cursor.execute('UPDATE user_access SET payment_id = %s WHERE user_id = %s', (payment_id, user_id))
             else:
                 cursor.execute('''
