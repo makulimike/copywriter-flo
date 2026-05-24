@@ -75,59 +75,55 @@ def handle_successful_payment(session_id):
             with db.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Create payments table if it doesn't exist
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS payments (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        stripe_session_id TEXT UNIQUE NOT NULL,
-                        amount INTEGER,
-                        currency TEXT,
-                        status TEXT DEFAULT 'completed',
-                        payment_date TEXT NOT NULL,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
-                    )
-                ''')
-                
-                # Create user_access table if it doesn't exist
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS user_access (
-                        user_id INTEGER PRIMARY KEY,
-                        has_lifetime_access INTEGER DEFAULT 0,
-                        access_granted_at TEXT,
-                        payment_id INTEGER,
-                        FOREIGN KEY (user_id) REFERENCES users (id),
-                        FOREIGN KEY (payment_id) REFERENCES payments (id)
-                    )
-                ''')
-                
-                # Check if payment already recorded
-                cursor.execute('SELECT id FROM payments WHERE stripe_session_id = ?', (session_id,))
-                existing = cursor.fetchone()
+                # Check if payment already recorded - using db.use_postgres flag
+                if db.use_postgres:
+                    cursor.execute('SELECT id FROM payments WHERE stripe_session_id = %s', (session_id,))
+                    existing = cursor.fetchone()
+                else:
+                    cursor.execute('SELECT id FROM payments WHERE stripe_session_id = ?', (session_id,))
+                    existing = cursor.fetchone()
                 
                 if existing:
                     print(f"Payment {session_id} already recorded")
                     return True
                 
                 # Record the payment
-                cursor.execute('''
-                    INSERT INTO payments 
-                    (user_id, stripe_session_id, amount, currency, payment_date)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_id, session_id, CAMPAIGN_PRICE, CURRENCY, datetime.now().isoformat()))
-                
-                payment_id = cursor.lastrowid
-                
-                # Grant lifetime access
-                cursor.execute('''
-                    INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
-                    VALUES (?, 1, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        has_lifetime_access = 1,
-                        access_granted_at = ?,
-                        payment_id = ?
-                ''', (user_id, datetime.now().isoformat(), payment_id,
-                      datetime.now().isoformat(), payment_id))
+                if db.use_postgres:
+                    cursor.execute('''
+                        INSERT INTO payments 
+                        (user_id, stripe_session_id, amount, currency, payment_date)
+                        VALUES (%s, %s, %s, %s, %s) RETURNING id
+                    ''', (user_id, session_id, CAMPAIGN_PRICE, CURRENCY, datetime.now().isoformat()))
+                    payment_id = cursor.fetchone()['id']
+                    
+                    # Grant lifetime access
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                        VALUES (%s, 1, %s, %s)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = %s,
+                            payment_id = %s
+                    ''', (user_id, datetime.now().isoformat(), payment_id,
+                          datetime.now().isoformat(), payment_id))
+                else:
+                    cursor.execute('''
+                        INSERT INTO payments 
+                        (user_id, stripe_session_id, amount, currency, payment_date)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (user_id, session_id, CAMPAIGN_PRICE, CURRENCY, datetime.now().isoformat()))
+                    payment_id = cursor.lastrowid
+                    
+                    # Grant lifetime access
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                        VALUES (?, 1, ?, ?)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = ?,
+                            payment_id = ?
+                    ''', (user_id, datetime.now().isoformat(), payment_id,
+                          datetime.now().isoformat(), payment_id))
                 
             print(f"✅ Payment recorded and lifetime access granted to user {user_id}")
             return True
@@ -139,36 +135,69 @@ def handle_successful_payment(session_id):
 
 def user_has_lifetime_access(user_id):
     """Check if user has paid for lifetime access"""
-    with db.get_connection() as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT has_lifetime_access FROM user_access WHERE user_id = ?', (user_id,))
-        result = cursor.fetchone()
-        
-        return result is not None and result[0] == 1
+    try:
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if db.use_postgres:
+                cursor.execute('SELECT has_lifetime_access FROM user_access WHERE user_id = %s', (user_id,))
+                result = cursor.fetchone()
+                if result:
+                    return result['has_lifetime_access'] == 1
+            else:
+                cursor.execute('SELECT has_lifetime_access FROM user_access WHERE user_id = ?', (user_id,))
+                result = cursor.fetchone()
+                if result:
+                    return result[0] == 1
+            return False
+    except Exception as e:
+        print(f"Error checking lifetime access: {e}")
+        return False
 
 def get_payment_status(user_id):
     """Get detailed payment status for user"""
-    with db.get_connection() as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                   p.amount, p.currency, p.payment_date
-            FROM user_access ua
-            LEFT JOIN payments p ON ua.payment_id = p.id
-            WHERE ua.user_id = ?
-        ''', (user_id,))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            return {
-                'has_access': result[0] == 1,
-                'granted_at': result[1],
-                'amount': result[2],
-                'currency': result[3],
-                'payment_date': result[4]
-            }
-        
+    try:
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if db.use_postgres:
+                cursor.execute('''
+                    SELECT ua.has_lifetime_access, ua.access_granted_at, 
+                           p.amount, p.currency, p.payment_date
+                    FROM user_access ua
+                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    WHERE ua.user_id = %s
+                ''', (user_id,))
+                result = cursor.fetchone()
+                
+                if result:
+                    return {
+                        'has_access': result['has_lifetime_access'] == 1,
+                        'granted_at': result['access_granted_at'],
+                        'amount': result['amount'],
+                        'currency': result['currency'],
+                        'payment_date': result['payment_date']
+                    }
+            else:
+                cursor.execute('''
+                    SELECT ua.has_lifetime_access, ua.access_granted_at, 
+                           p.amount, p.currency, p.payment_date
+                    FROM user_access ua
+                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    WHERE ua.user_id = ?
+                ''', (user_id,))
+                result = cursor.fetchone()
+                
+                if result:
+                    return {
+                        'has_access': result[0] == 1,
+                        'granted_at': result[1],
+                        'amount': result[2],
+                        'currency': result[3],
+                        'payment_date': result[4]
+                    }
+            
+            return {'has_access': False}
+    except Exception as e:
+        print(f"Error getting payment status: {e}")
         return {'has_access': False}
