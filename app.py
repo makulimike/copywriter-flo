@@ -968,10 +968,16 @@ def send_confirmation_request(lead, user_id):
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE leads SET confirmation_token = ?, confirmation_sent_at = ? WHERE id = ?',
-            (confirmation_token, datetime.now().isoformat(), lead['id']),
-        )
+        if db.use_postgres:
+            cursor.execute(
+                'UPDATE leads SET confirmation_token = %s, confirmation_sent_at = %s WHERE id = %s',
+                (confirmation_token, datetime.now().isoformat(), lead['id']),
+            )
+        else:
+            cursor.execute(
+                'UPDATE leads SET confirmation_token = ?, confirmation_sent_at = ? WHERE id = ?',
+                (confirmation_token, datetime.now().isoformat(), lead['id']),
+            )
 
     confirm_url = f"{APP_URL}/confirm-meeting/{confirmation_token}"
     decline_url = f"{APP_URL}/decline-meeting/{confirmation_token}"
@@ -1097,14 +1103,23 @@ def check_email_replies_background():
         try:
             with db.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT DISTINCT user_id FROM api_settings
-                    WHERE smtp_user IS NOT NULL AND smtp_user != ''
-                """)
+                if db.use_postgres:
+                    cursor.execute("""
+                        SELECT DISTINCT user_id FROM api_settings
+                        WHERE smtp_user IS NOT NULL AND smtp_user != ''
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT DISTINCT user_id FROM api_settings
+                        WHERE smtp_user IS NOT NULL AND smtp_user != ''
+                    """)
                 users = cursor.fetchall()
 
             for user in users:
-                check_and_process_replies(user['user_id'] if hasattr(user, '__getitem__') else user[0])
+                if db.use_postgres:
+                    check_and_process_replies(user['user_id'])
+                else:
+                    check_and_process_replies(user[0])
 
             backoff = 120
             time.sleep(backoff)
@@ -1173,12 +1188,20 @@ def check_and_process_replies(user_id):
 def find_lead_by_email(email_address, user_id):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT l.*, c.name as campaign_name, c.industry, c.user_id
-            FROM leads l
-            JOIN campaigns c ON l.campaign_id = c.id
-            WHERE l.email = ? AND c.user_id = ?
-        """, (email_address, user_id))
+        if db.use_postgres:
+            cursor.execute("""
+                SELECT l.*, c.name as campaign_name, c.industry, c.user_id
+                FROM leads l
+                JOIN campaigns c ON l.campaign_id = c.id
+                WHERE l.email = %s AND c.user_id = %s
+            """, (email_address, user_id))
+        else:
+            cursor.execute("""
+                SELECT l.*, c.name as campaign_name, c.industry, c.user_id
+                FROM leads l
+                JOIN campaigns c ON l.campaign_id = c.id
+                WHERE l.email = ? AND c.user_id = ?
+            """, (email_address, user_id))
         result = cursor.fetchone()
         if result:
             return _row_to_dict(result)
@@ -1297,19 +1320,34 @@ Your Copywriting Consultant"""
                     lead['email'], "Meeting Confirmation",
                     generate_html_email(reply_email_body, ''), user_id,
                 )
-                cursor.execute("""
-                    UPDATE leads SET replied=1, status='meeting_scheduled', notes=? WHERE id=?
-                """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                if db.use_postgres:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='meeting_scheduled', notes=%s WHERE id=%s
+                    """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                else:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='meeting_scheduled', notes=? WHERE id=?
+                    """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"🔥 {lead['name']} is HOT — scheduled meeting")
             elif category == "INTERESTED":
-                cursor.execute("""
-                    UPDATE leads SET replied=1, status='interested', notes=? WHERE id=?
-                """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                if db.use_postgres:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='interested', notes=%s WHERE id=%s
+                    """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                else:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='interested', notes=? WHERE id=?
+                    """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"📝 {lead['name']} is interested — follow up needed")
             elif category == "NOT_INTERESTED":
-                cursor.execute("""
-                    UPDATE leads SET replied=1, status='not_interested', notes=? WHERE id=?
-                """, (f"Not interested: {reply_body[:500]}", lead['id']))
+                if db.use_postgres:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='not_interested', notes=%s WHERE id=%s
+                    """, (f"Not interested: {reply_body[:500]}", lead['id']))
+                else:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='not_interested', notes=? WHERE id=?
+                    """, (f"Not interested: {reply_body[:500]}", lead['id']))
                 print(f"❌ {lead['name']} is not interested")
             elif category == "QUESTION":
                 q_response = client.chat.completions.create(
@@ -1322,14 +1360,24 @@ Your Copywriting Consultant"""
                 )
                 answer = q_response.choices[0].message.content.strip()
                 send_html_email(lead['email'], "Answering your question", generate_html_email(answer, ''), user_id)
-                cursor.execute("""
-                    UPDATE leads SET replied=1, status='question_answered', notes=? WHERE id=?
-                """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
+                if db.use_postgres:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='question_answered', notes=%s WHERE id=%s
+                    """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
+                else:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='question_answered', notes=? WHERE id=?
+                    """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
                 print(f"❓ Answered question from {lead['name']}")
             else:
-                cursor.execute("""
-                    UPDATE leads SET replied=1, status='follow_up_needed', notes=? WHERE id=?
-                """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                if db.use_postgres:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='follow_up_needed', notes=%s WHERE id=%s
+                    """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                else:
+                    cursor.execute("""
+                        UPDATE leads SET replied=1, status='follow_up_needed', notes=? WHERE id=?
+                    """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"🔄 {lead['name']} needs follow-up — {reason}")
 
             conn.commit()
@@ -1423,11 +1471,9 @@ def payment_success():
         session_id = session['payment_session_id']
     
     if session_id:
-        # Verify the payment
         success = handle_successful_payment(session_id)
         
         if success:
-            # Get user_id from session or from the payment
             user_id = session.get('user_id')
             if user_id:
                 db.grant_lifetime_access(user_id)
@@ -1514,26 +1560,53 @@ def meetings():
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT l.id, l.name, l.company, l.email, l.phone,
-                   l.meeting_link, l.meeting_time, l.status,
-                   c.name as campaign_name
-            FROM leads l
-            JOIN campaigns c ON l.campaign_id = c.id
-            WHERE c.user_id = ? AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
-            ORDER BY
-                CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
-        """, (user_id,))
+        
+        if db.use_postgres:
+            cursor.execute("""
+                SELECT l.id, l.name, l.company, l.email, l.phone,
+                       l.meeting_link, l.meeting_time, l.status,
+                       c.name as campaign_name
+                FROM leads l
+                JOIN campaigns c ON l.campaign_id = c.id
+                WHERE c.user_id = %s AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
+                ORDER BY
+                    CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
+            """, (user_id,))
+        else:
+            cursor.execute("""
+                SELECT l.id, l.name, l.company, l.email, l.phone,
+                       l.meeting_link, l.meeting_time, l.status,
+                       c.name as campaign_name
+                FROM leads l
+                JOIN campaigns c ON l.campaign_id = c.id
+                WHERE c.user_id = ? AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
+                ORDER BY
+                    CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
+            """, (user_id,))
+        
         rows = cursor.fetchall()
 
-    meetings_list = [
-        {
-            'id': r[0], 'name': r[1], 'company': r[2], 'email': r[3],
-            'phone': r[4], 'meeting_link': r[5], 'meeting_time': r[6],
-            'status': r[7], 'campaign_name': r[8],
-        }
-        for r in rows
-    ]
+    meetings_list = []
+    for r in rows:
+        if db.use_postgres:
+            meetings_list.append({
+                'id': r['id'],
+                'name': r['name'],
+                'company': r['company'],
+                'email': r['email'],
+                'phone': r['phone'],
+                'meeting_link': r['meeting_link'],
+                'meeting_time': r['meeting_time'],
+                'status': r['status'],
+                'campaign_name': r['campaign_name']
+            })
+        else:
+            meetings_list.append({
+                'id': r[0], 'name': r[1], 'company': r[2], 'email': r[3],
+                'phone': r[4], 'meeting_link': r[5], 'meeting_time': r[6],
+                'status': r[7], 'campaign_name': r[8],
+            })
+    
     return render_template('meetings.html', meetings=meetings_list)
 
 @app.route('/meeting/<int:lead_id>/reschedule', methods=['POST'])
@@ -1673,20 +1746,37 @@ def logout():
 def confirm_meeting(token):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = ?", (token,))
+        if db.use_postgres:
+            cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = %s", (token,))
+        else:
+            cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = ?", (token,))
         lead = cursor.fetchone()
 
         if not lead:
             return "Invalid or expired link", 404
 
-        lead_id, lead_email, lead_name = lead['id'], lead['email'], lead['name']
+        if db.use_postgres:
+            lead_id = lead['id']
+            lead_email = lead['email']
+            lead_name = lead['name']
+        else:
+            lead_id = lead[0]
+            lead_email = lead[1]
+            lead_name = lead[2]
+        
         meeting_link = create_google_meet_link()
         meeting_time = (datetime.now() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
 
-        cursor.execute("""
-            UPDATE leads SET meeting_scheduled=1, meeting_link=?, meeting_time=?, status='meeting_scheduled'
-            WHERE id=?
-        """, (meeting_link, meeting_time.isoformat(), lead_id))
+        if db.use_postgres:
+            cursor.execute("""
+                UPDATE leads SET meeting_scheduled=1, meeting_link=%s, meeting_time=%s, status='meeting_scheduled'
+                WHERE id=%s
+            """, (meeting_link, meeting_time.isoformat(), lead_id))
+        else:
+            cursor.execute("""
+                UPDATE leads SET meeting_scheduled=1, meeting_link=?, meeting_time=?, status='meeting_scheduled'
+                WHERE id=?
+            """, (meeting_link, meeting_time.isoformat(), lead_id))
         conn.commit()
 
     subject = "Meeting Confirmed - Copywriting Consultation"
@@ -1710,7 +1800,10 @@ Your Copywriting Consultant"""
 def decline_meeting(token):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=?", (token,))
+        if db.use_postgres:
+            cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=%s", (token,))
+        else:
+            cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=?", (token,))
         conn.commit()
     return render_template('declined.html')
 
@@ -1752,15 +1845,26 @@ def settings():
 
         with db.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE users SET phone=?, whatsapp_number=?, telegram_chat_id=? WHERE id=?',
-                (
-                    request.form.get('phone', ''),
-                    request.form.get('whatsapp_number', ''),
-                    request.form.get('telegram_chat_id', ''),
-                    session['user_id'],
-                ),
-            )
+            if db.use_postgres:
+                cursor.execute(
+                    'UPDATE users SET phone=%s, whatsapp_number=%s, telegram_chat_id=%s WHERE id=%s',
+                    (
+                        request.form.get('phone', ''),
+                        request.form.get('whatsapp_number', ''),
+                        request.form.get('telegram_chat_id', ''),
+                        session['user_id'],
+                    ),
+                )
+            else:
+                cursor.execute(
+                    'UPDATE users SET phone=?, whatsapp_number=?, telegram_chat_id=? WHERE id=?',
+                    (
+                        request.form.get('phone', ''),
+                        request.form.get('whatsapp_number', ''),
+                        request.form.get('telegram_chat_id', ''),
+                        session['user_id'],
+                    ),
+                )
 
         db.update_notification_settings(
             session['user_id'],
@@ -2136,11 +2240,23 @@ Your Copywriting Consultant"""
 def track_open(message_id):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT lead_id FROM messages WHERE id=?', (message_id,))
+        if db.use_postgres:
+            cursor.execute('SELECT lead_id FROM messages WHERE id=%s', (message_id,))
+        else:
+            cursor.execute('SELECT lead_id FROM messages WHERE id=?', (message_id,))
         result = cursor.fetchone()
         if result:
-            cursor.execute('UPDATE leads SET opened=1 WHERE id=?', (result['lead_id'],))
-            cursor.execute('UPDATE messages SET opened_at=? WHERE id=?', (datetime.now().isoformat(), message_id))
+            if db.use_postgres:
+                lead_id = result['lead_id']
+            else:
+                lead_id = result[0]
+            
+            if db.use_postgres:
+                cursor.execute('UPDATE leads SET opened=1 WHERE id=%s', (lead_id,))
+                cursor.execute('UPDATE messages SET opened_at=%s WHERE id=%s', (datetime.now().isoformat(), message_id))
+            else:
+                cursor.execute('UPDATE leads SET opened=1 WHERE id=?', (lead_id,))
+                cursor.execute('UPDATE messages SET opened_at=? WHERE id=?', (datetime.now().isoformat(), message_id))
 
     pixel = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
     return send_file(io.BytesIO(pixel), mimetype='image/gif', as_attachment=False, download_name='pixel.gif')
@@ -2181,7 +2297,7 @@ if __name__ == '__main__':
     print("⚡ Copywriterflo - Copywriter Acquisition System")
     print("=" * 60)
     print(f"✅ App URL: {APP_URL}")
-    print("✅ Database: copywriter.db")
+    print("✅ Database: PostgreSQL" if db.use_postgres else "✅ Database: SQLite")
     print("✅ CSRF Protection: Enabled")
     print("✅ Rate Limiting: Enabled (incl. Nominatim 1 req/s)")
     print("✅ HTML Emails: Enabled (XSS-safe)")
@@ -2195,7 +2311,7 @@ if __name__ == '__main__':
     print("✅ Stripe Payment Integration: One-time $280 Lifetime Access")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
-    print("📱 Access via ngrok: " + APP_URL)
+    print("📱 Production URL: " + APP_URL)
     print("📱 Login with your registered account")
     print("⚡ Press Ctrl+C to stop")
     print("=" * 60)
