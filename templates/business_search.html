@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 24px;">
+    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent);">← Back to Campaign</a>
+  </div>
+
+  <div style="margin-bottom: 32px;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Find Businesses (FREE - OpenStreetMap)</h1>
+    <p style="color: var(--muted);">Search for real physical businesses based on your campaign's industry and location</p>
+  </div>
+
+  <!-- Tips Section -->
+  <div class="card" style="margin-bottom: 24px; background: rgba(34,197,94,0.1); border-color: #22c55e;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">💡 Search Tips for Better Results:</h3>
+    <ul style="color: var(--muted); font-size: 13px; line-height: 1.8;">
+      <li>• Use specific business types: <strong>restaurant, hotel, coffee shop, salon, clinic, school, supermarket</strong></li>
+      <li>• Instead of "e commerce", try: <strong>online store, retail shop, boutique</strong></li>
+      <li>• For service businesses, try: <strong>marketing agency, consulting firm, law firm, accounting firm</strong></li>
+      <li>• OpenStreetMap works best for physical locations with addresses</li>
+      <li>• Try searching without "Kenya" - just the city name works better</li>
+    </ul>
+  </div>
+
+  <!-- Search Form -->
+  <div class="card" style="margin-bottom: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">🔍 Search Parameters</h3>
+    
+    <form method="POST" action="{{ url_for('business_search', campaign_id=campaign.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      
+      <div class="form-group">
+        <label>Search Keyword / Business Type</label>
+        <input type="text" name="keyword" value="{{ campaign.industry }}" placeholder="e.g., restaurant, hotel, coffee shop, salon, clinic" required>
+        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Try specific business types for best results</div>
+      </div>
+      
+      <div class="form-group">
+        <label>Location (City only works best)</label>
+        <input type="text" name="location" placeholder="e.g., Nairobi, Mombasa, Kisumu" required>
+        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Just the city name works best (e.g., Nairobi, not Nairobi, Kenya)</div>
+      </div>
+      
+      <div class="form-group">
+        <label>Max Results</label>
+        <select name="max_results">
+          <option value="10">10 businesses</option>
+          <option value="20" selected>20 businesses</option>
+          <option value="30">30 businesses</option>
+          <option value="50">50 businesses</option>
+        </select>
+      </div>
+      
+      <!-- AI Enhancement Toggle -->
+      <div class="checkbox-row" style="margin-bottom: 16px; margin-top: 16px;">
+        <input type="checkbox" name="use_ai" id="use_ai" checked>
+        <label for="use_ai" style="margin: 0;">🤖 Use AI to enhance search (better keywords & business data)</label>
+      </div>
+      <div class="text-muted" style="font-size: 12px; margin-left: 24px; margin-bottom: 16px;">
+        AI will suggest better search terms and try to find website/contact info for businesses
+      </div>
+      
+      <button type="submit" class="btn btn-primary" style="background: #3b82f6;">🔍 Search Businesses</button>
+    </form>
+    <p class="text-muted" style="margin-top: 12px; font-size: 12px;">✅ Powered by OpenStreetMap - Completely FREE, no API key needed</p>
+  </div>
+
+  <!-- AI Suggestions -->
+  {% if alternative_terms and alternative_terms|length > 0 %}
+  <div class="card" style="margin-bottom: 24px; background: rgba(59,130,246,0.1); border-color: #3b82f6;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">🤖 AI Suggested Alternative Search Terms:</h3>
+    <div class="flex gap-2" style="flex-wrap: wrap;">
+      {% for term in alternative_terms %}
+      <button onclick="suggestSearch('{{ term }}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">{{ term }}</button>
+      {% endfor %}
+    </div>
+    <p class="text-muted" style="margin-top: 12px; font-size: 12px;">Click any term to search with that keyword</p>
+  </div>
+  {% endif %}
+
+  <!-- Search Results -->
+  {% if results %}
+  <div class="card">
+    <div class="flex justify-between items-center" style="margin-bottom: 16px;">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
+      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;">📥 Import Selected Leads</button>
+    </div>
+    
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+            <th>Business Name</th>
+            <th>Address</th>
+            <th>Website</th>
+            <th>Phone</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for biz in results %}
+          <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" class="lead-checkbox" value="{{ loop.index0 }}" 
+                     data-name="{{ biz.name }}" 
+                     data-company="{{ biz.company }}" 
+                     data-address="{{ biz.address }}" 
+                     data-website="{{ biz.website }}" 
+                     data-phone="{{ biz.phone }}"
+                     data-place-id="{{ biz.place_id }}">
+            </td>
+            <td><strong>{{ biz.name }}</strong></td>
+            <td style="font-size: 13px;">{{ biz.address or '-' }}</td>
+            <td>
+              {% if biz.website %}
+                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent);">Visit</a>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>{{ biz.phone or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <div style="margin-top: 16px; text-align: right;">
+      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;">📥 Import Selected Leads</button>
+    </div>
+  </div>
+  {% elif request.method == 'POST' %}
+  <div class="card" style="text-align: center; padding: 40px; background: rgba(239,68,68,0.1); border-color: #ef4444;">
+    <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
+    <h3 style="margin-bottom: 8px;">No businesses found</h3>
+    <p style="color: var(--muted);">Try these suggestions:</p>
+    <ul style="color: var(--muted); text-align: left; max-width: 400px; margin: 16px auto;">
+      <li>• Use a more specific business type (restaurant, hotel, salon, etc.)</li>
+      <li>• Try a different location (just the city name)</li>
+      <li>• Try "Nairobi" instead of "Nairobi, Kenya"</li>
+      <li>• OpenStreetMap works best for physical businesses</li>
+      <li>• Enable the "Use AI" option for smarter search suggestions</li>
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Recent Searches -->
+  {% if searches %}
+  <div class="card" style="margin-top: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📜 Recent Searches</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Keyword</th>
+            <th>Location</th>
+            <th>Results Found</th>
+            <th>Searched On</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for search in searches %}
+          <tr>
+            <td>{{ search.keyword }}</td>
+            <td>{{ search.location or 'Any' }}</td>
+            <td>{{ search.total_results }}</td>
+            <td>{{ search.created_at[:16] }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('business_search', campaign_id=campaign.id) }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="keyword" value="{{ search.keyword }}">
+                <input type="hidden" name="location" value="{{ search.location }}">
+                <input type="hidden" name="max_results" value="20">
+                <input type="hidden" name="use_ai" value="on">
+                <button type="submit" class="btn btn-secondary">🔍 Search Again</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.lead-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+}
+
+function suggestSearch(term) {
+    const keywordInput = document.querySelector('input[name="keyword"]');
+    if (keywordInput) {
+        keywordInput.value = term;
+        // Optionally submit the form
+        // keywordInput.closest('form').submit();
+        alert('Search term updated to: ' + term + '\nClick Search again to run the search.');
+    }
+}
+
+async function importSelectedLeads() {
+    const selectedCheckboxes = document.querySelectorAll('.lead-checkbox:checked');
+    const businesses = [];
+    
+    selectedCheckboxes.forEach(cb => {
+        businesses.push({
+            name: cb.getAttribute('data-name'),
+            company: cb.getAttribute('data-company'),
+            address: cb.getAttribute('data-address'),
+            website: cb.getAttribute('data-website'),
+            phone: cb.getAttribute('data-phone'),
+            place_id: cb.getAttribute('data-place-id')
+        });
+    });
+    
+    if (businesses.length === 0) {
+        alert('Please select at least one business to import.');
+        return;
+    }
+    
+    const response = await fetch('{{ url_for("import_business_leads", campaign_id=campaign.id) }}', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({ businesses: businesses })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+        alert(`Successfully imported ${result.count} leads! AI processing will start automatically.`);
+        window.location.href = '{{ url_for("campaign_detail", campaign_id=campaign.id) }}';
+    } else {
+        alert('Error importing leads: ' + result.error);
+    }
+}
+</script>
+{% endblock %}

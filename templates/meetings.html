@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 32px;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;"> Scheduled Meetings</h1>
+    <p style="color: var(--muted);">Manage all your upcoming client meetings</p>
+  </div>
+
+  {% if meetings and meetings|length > 0 %}
+    <div style="display: grid; gap: 16px;">
+      {% for meeting in meetings %}
+      <div class="card" style="padding: 20px;">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">{{ meeting.name }}</h3>
+            <p style="color: var(--muted); font-size: 13px;">{{ meeting.company }} | {{ meeting.campaign_name }}</p>
+          </div>
+          <div>
+            {% if meeting.status == 'meeting_scheduled' %}
+              <span class="badge badge-success"> Confirmed</span>
+            {% elif meeting.status == 'calendly_sent' %}
+              <span class="badge badge-warm"> Awaiting Booking</span>
+            {% else %}
+              <span class="badge">{{ meeting.status }}</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="flex gap-3" style="margin-top: 16px; flex-wrap: wrap;">
+          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
+            <span class="text-muted" style="font-size: 11px;">TIME</span>
+            <div style="font-weight: 600;">{% if meeting.meeting_time %}{{ meeting.meeting_time[:16] }}{% else %}To be booked{% endif %}</div>
+          </div>
+          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
+            <span class="text-muted" style="font-size: 11px;">EMAIL</span>
+            <div style="font-weight: 600;">{{ meeting.email }}</div>
+          </div>
+          {% if meeting.phone %}
+          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
+            <span class="text-muted" style="font-size: 11px;">PHONE</span>
+            <div style="font-weight: 600;">{{ meeting.phone }}</div>
+          </div>
+          {% endif %}
+        </div>
+        
+        {% if meeting.meeting_link %}
+        <div style="margin-top: 12px;">
+          <a href="{{ meeting.meeting_link }}" target="_blank" class="btn btn-primary" style="background: #22c55e; font-size: 13px;">
+            Join Meeting
+          </a>
+        </div>
+        {% endif %}
+        
+        <div class="flex gap-2" style="margin-top: 16px;">
+          <button type="button" onclick="rescheduleMeeting({{ meeting.id }})" class="btn btn-secondary">📅 Reschedule</button>
+          <button type="button" onclick="cancelMeeting({{ meeting.id }})" class="btn btn-secondary">❌ Cancel</button>
+          <a href="{{ url_for('lead_detail', lead_id=meeting.id) }}" class="btn btn-secondary">View Lead →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 60px 24px;">
+      <div style="font-size: 48px; margin-bottom: 16px;"></div>
+      <h3 style="margin-bottom: 8px;">No meetings scheduled yet</h3>
+      <p style="color: var(--muted);">When leads book calls or you schedule meetings, they'll appear here.</p>
+      <div class="flex gap-2" style="justify-content: center; margin-top: 24px;">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
+        <a href="{{ url_for('settings') }}" class="btn btn-secondary">Add Calendly Link</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function getCSRFToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+async function rescheduleMeeting(leadId) {
+  if (!leadId) {
+    alert('Invalid meeting ID');
+    return;
+  }
+  
+  const newTime = prompt("Enter new meeting time (YYYY-MM-DD HH:MM):\nExample: 2024-12-25 15:00");
+  if (!newTime) return;
+  
+  try {
+    const response = await fetch('/meeting/' + leadId + '/reschedule', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+      },
+      body: JSON.stringify({ meeting_time: newTime })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert('✅ Meeting rescheduled!');
+      location.reload();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error rescheduling meeting');
+  }
+}
+
+async function cancelMeeting(leadId) {
+  if (!leadId) {
+    alert('Invalid meeting ID');
+    return;
+  }
+  
+  if (!confirm('Are you sure you want to cancel this meeting?')) return;
+  
+  try {
+    const response = await fetch('/meeting/' + leadId + '/cancel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+      }
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert('✅ Meeting cancelled!');
+      location.reload();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error cancelling meeting');
+  }
+}
+</script>
+{% endblock %}

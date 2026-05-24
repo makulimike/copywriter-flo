@@ -1,0 +1,159 @@
+<!-- templates/pricing.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 32px; text-align: center;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800;">Lifetime Access</h1>
+    <p style="color: var(--muted);">Pay once. Use forever. Create unlimited campaigns.</p>
+  </div>
+
+  {% if has_access %}
+  <div class="card" style="margin-bottom: 32px; text-align: center; background: rgba(34,197,94,0.1); border-color: #22c55e;">
+    <div style="font-size: 48px; margin-bottom: 8px;">✅</div>
+    <h2 style="margin-bottom: 8px;">You already have Lifetime Access!</h2>
+    <p>You can create unlimited campaigns forever. No more payments needed.</p>
+    {% if payment_info.granted_at %}
+    <p style="font-size: 13px; color: var(--muted); margin-top: 8px;">
+      Access granted on {{ payment_info.granted_at[:10] }}
+    </p>
+    {% endif %}
+    <a href="{{ url_for('campaign_new') }}" class="btn btn-primary" style="margin-top: 16px;">Create Your First Campaign →</a>
+  </div>
+  {% endif %}
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; max-width: 1200px; margin: 0 auto;">
+    <!-- Lifetime Access Card -->
+    <div class="card" style="text-align: center; {% if not has_access %}border-color: var(--accent);{% endif %}">
+      {% if not has_access %}
+      <div style="position: relative; top: -12px; background: var(--accent); display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+        BEST VALUE
+      </div>
+      {% endif %}
+      
+      <div style="font-size: 14px; color: var(--accent); margin-bottom: 16px; margin-top: 8px;">ONE-TIME PAYMENT</div>
+      
+      <div style="font-size: 48px; font-weight: 800;">
+        ${{ "%.2f"|format(price) }}
+      </div>
+      <div style="color: var(--muted); margin-bottom: 24px;">lifetime access</div>
+      
+      <ul style="text-align: left; margin: 24px 0; list-style: none;">
+        <li style="margin-bottom: 12px;">✓ <strong>Unlimited campaigns</strong> forever</li>
+        <li style="margin-bottom: 12px;">✓ AI lead scoring (1-10)</li>
+        <li style="margin-bottom: 12px;">✓ Personalized email generation</li>
+        <li style="margin-bottom: 12px;">✓ Free business search (OpenStreetMap)</li>
+        <li style="margin-bottom: 12px;">✓ Email tracking & open detection</li>
+        <li style="margin-bottom: 12px;">✓ Auto-reply detection & analysis</li>
+        <li style="margin-bottom: 12px;">✓ Meeting scheduling</li>
+        <li style="margin-bottom: 12px;">✓ Website analysis & recommendations</li>
+        <li style="margin-bottom: 12px;">✓ All future updates & features</li>
+      </ul>
+      
+      <div style="margin-top: 24px;">
+        {% if has_access %}
+          <a href="{{ url_for('campaign_new') }}" class="btn btn-primary" style="width: 100%;">
+            🚀 Create Campaign Now
+          </a>
+        {% else %}
+          <button id="checkout-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
+            Pay ${{ "%.2f"|format(price) }} - Get Lifetime Access
+          </button>
+        {% endif %}
+      </div>
+      
+      <p style="margin-top: 16px; font-size: 12px; color: var(--muted);">
+        🔒 Secure payment powered by Stripe
+      </p>
+    </div>
+
+    <!-- Feature Details -->
+    <div class="card">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">What's included:</h3>
+      
+      <div style="margin-bottom: 20px;">
+        <h4 style="color: var(--accent); margin-bottom: 8px;">🎯 AI Lead Scoring</h4>
+        <p style="color: var(--muted); font-size: 14px;">Automatically score leads 1-10 based on their likelihood to need copywriting services.</p>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4 style="color: var(--accent); margin-bottom: 8px;">📧 Smart Email Generation</h4>
+        <p style="color: var(--muted); font-size: 14px;">AI writes personalized cold emails based on each lead's website analysis.</p>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4 style="color: var(--accent); margin-bottom: 8px;">📍 Free Business Search</h4>
+        <p style="color: var(--muted); font-size: 14px;">Find unlimited leads using OpenStreetMap - completely free, no API key needed.</p>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4 style="color: var(--accent); margin-bottom: 8px;">📊 Email Tracking</h4>
+        <p style="color: var(--muted); font-size: 14px;">Track opens, replies, and automatically detect meeting requests.</p>
+      </div>
+      
+      <div>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">🔔 Real-time Alerts</h4>
+        <p style="color: var(--muted); font-size: 14px;">Get notified when leads reply, want to book calls, or ask questions.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ Section -->
+  <div class="card" style="margin-top: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">Frequently Asked Questions</h3>
+    
+    <div style="margin-bottom: 16px;">
+      <strong>❓ Is this really a one-time payment?</strong>
+      <p class="text-muted" style="margin-top: 4px;">Yes! Pay once, get lifetime access. No subscriptions, no hidden fees, no recurring charges.</p>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <strong>❓ Can I create unlimited campaigns?</strong>
+      <p class="text-muted" style="margin-top: 4px;">Absolutely! After purchase, you can create as many campaigns as you want, forever.</p>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <strong>❓ Do I need my own API keys?</strong>
+      <p class="text-muted" style="margin-top: 4px;">You'll need an OpenAI API key for AI features. Everything else works out of the box.</p>
+    </div>
+    
+    <div>
+      <strong>❓ What if I have issues?</strong>
+      <p class="text-muted" style="margin-top: 4px;">We offer support via email. Just reach out and we'll help you out.</p>
+    </div>
+  </div>
+</div>
+
+{% if not has_access %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+const stripe = Stripe('{{ stripe_publishable_key }}');
+const checkoutButton = document.getElementById('checkout-button');
+
+if (checkoutButton) {
+  checkoutButton.addEventListener('click', async () => {
+    checkoutButton.disabled = true;
+    checkoutButton.textContent = 'Processing...';
+    
+    const response = await fetch('{{ url_for("create_checkout_session") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+      }
+    });
+    
+    const session = await response.json();
+    
+    if (session.url) {
+      window.location.href = session.url;
+    } else {
+      alert('Error creating payment session: ' + (session.error || 'Unknown error'));
+      checkoutButton.disabled = false;
+      checkoutButton.textContent = 'Pay ${{ "%.2f"|format(price) }} - Get Lifetime Access';
+    }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

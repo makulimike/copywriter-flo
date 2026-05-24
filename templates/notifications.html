@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 32px;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Notification Settings</h1>
+    <p style="color: var(--muted);">Get instant alerts when hot leads are detected.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+    <!-- Channels -->
+    <div class="card">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📢 Notification Channels</h3>
+      <form method="POST">
+        <div class="checkbox-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <input type="checkbox" name="email_enabled" id="email_enabled" {% if notification_settings and notification_settings.email_enabled %}checked{% endif %}>
+          <label for="email_enabled" style="margin: 0;">📧 Email Notifications</label>
+        </div>
+        <div class="checkbox-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <input type="checkbox" name="sms_enabled" id="sms_enabled" {% if notification_settings and notification_settings.sms_enabled %}checked{% endif %}>
+          <label for="sms_enabled" style="margin: 0;">📱 SMS Notifications</label>
+        </div>
+        <div class="checkbox-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <input type="checkbox" name="whatsapp_enabled" id="whatsapp_enabled" {% if notification_settings and notification_settings.whatsapp_enabled %}checked{% endif %}>
+          <label for="whatsapp_enabled" style="margin: 0;">💬 WhatsApp Notifications</label>
+        </div>
+        <div class="checkbox-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <input type="checkbox" name="telegram_enabled" id="telegram_enabled" {% if notification_settings and notification_settings.telegram_enabled %}checked{% endif %}>
+          <label for="telegram_enabled" style="margin: 0;">🤖 Telegram Notifications</label>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Save Preferences</button>
+      </form>
+    </div>
+
+    <!-- Contact Info -->
+    <div class="card">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📞 Contact Information</h3>
+      <form method="POST">
+        <div class="form-group">
+          <label>Phone Number (for SMS)</label>
+          <input type="tel" name="phone" value="{{ user.phone or '' }}" placeholder="+1234567890">
+        </div>
+        <div class="form-group">
+          <label>WhatsApp Number</label>
+          <input type="tel" name="whatsapp_number" value="{{ user.whatsapp_number or '' }}" placeholder="+1234567890">
+        </div>
+        <div class="form-group">
+          <label>Telegram Chat ID</label>
+          <input type="text" name="telegram_chat_id" value="{{ user.telegram_chat_id or '' }}" placeholder="Your Telegram chat ID">
+          <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Send @userinfobot on Telegram to get your chat ID</div>
+        </div>
+        <div class="form-group">
+          <label>Meeting Link (for booking calls)</label>
+          <input type="url" name="meeting_link" value="{{ user.meeting_link or '' }}" placeholder="https://calendly.com/your-link or https://meet.google.com/...">
+          <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Hot leads will automatically get this link</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Contact Info</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📋 How It Works</h3>
+    <ul style="list-style: none; color: var(--muted); line-height: 2;">
+      <li>• AI scores each lead from 1-10</li>
+      <li>• Leads scoring 7+ are marked as "HOT"</li>
+      <li>• Instant notifications sent via your selected channels</li>
+      <li>• Includes the lead's name, company, and your meeting link</li>
+      <li>• You can then review and send personalized outreach</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 24px;">
+  <div>
+    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.3); color: var(--accent); padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; margin-bottom: 32px;">
+      AI-Powered Client Acquisition
+    </div>
+    <h1 style="font-family: 'Syne', sans-serif; font-size: clamp(40px, 4vw, 80px); font-weight: 800; line-height: 1.05; margin-bottom: 24px;">
+      Stop Chasing Clients.<br><em style="color: var(--accent); font-style: normal;">Start Booking Meetings.</em>
+    </h1>
+    <p style="font-size: clamp(16px, 2vw, 20px); color: var(--muted); max-width: 540px; margin: 0 auto 40px; line-height: 1.7;">
+      The First Client Engine scores your leads, writes personalized outreach, and alerts you the moment a hot prospect is ready.
+    </p>
+    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <a href="{{ url_for('register') }}" class="btn btn-primary" style="padding: 14px 28px; font-size: 16px;">Get Started</a>
+      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="padding: 14px 28px; font-size: 16px;">Sign in</a>
+    </div>
+    
+  </div>
+</div>
+{% endblock %}

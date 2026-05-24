@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">{{ campaign.name }}</h1>
+      <p style="color: var(--muted);">Industry: {{ campaign.industry }} | Created: {{ campaign.created_at[:10] }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ url_for('leads_upload', campaign_id=campaign.id) }}" class="btn btn-primary">+ Add Leads</a>
+     <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-primary" style="background: #3b82f6;">📍 Find Businesses (Free)</a>
+      <form method="POST" action="{{ url_for('campaign_delete', campaign_id=campaign.id) }}" style="display: inline;" onsubmit="return confirm('Delete this campaign? All leads will be lost.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary" style="background: #450a0a; border-color: #7f1d1d;">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="label">Total Leads</div><div class="value">{{ stats.total_leads }}</div></div>
+    <div class="stat-card"><div class="label" style="color: var(--accent);">Hot Leads (7+)</div><div class="value" style="color: var(--accent);">{{ stats.hot_leads }}</div></div>
+    <div class="stat-card"><div class="label">Messages Sent</div><div class="value" style="color: #22c55e;">{{ stats.messages_sent }}</div></div>
+    <div class="stat-card"><div class="label">Websites Analyzed</div><div class="value" style="color: #3b82f6;">{{ stats.websites_analyzed|default(0) }}</div></div>
+  </div>
+
+  {% if leads %}
+    <div style="margin-top: 32px;">
+      <div class="flex justify-between items-center" style="margin-bottom: 16px;">
+        <h2 style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700;">Leads</h2>
+        <div class="flex gap-2">
+          <form method="POST" action="{{ url_for('process_campaign', campaign_id=campaign.id) }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" style="background: #22c55e;">🤖 Run AI Processing</button>
+          </form>
+          <button type="button" onclick="checkReplies()" class="btn btn-secondary" style="background: #3b82f6;">📧 Check for Replies</button>
+        </div>
+      </div>
+      
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto;">
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Company</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th>Website Analysis</th>
+              <th>Meeting</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead in leads %}
+            <tr>
+              <td>
+                <strong>{{ lead.name }}</strong><br>
+                <span class="text-muted" style="font-size: 12px;">{{ lead.email }}</span>
+              </td>
+              <td>{{ lead.company or '-' }}</td>
+              <td>
+                {% if lead.score >= 7 %}
+                  <span class="badge badge-hot">🔥 {{ lead.score }}/10</span>
+                {% elif lead.score >= 4 %}
+                  <span class="badge badge-warm">🟡 {{ lead.score }}/10</span>
+                {% elif lead.score > 0 %}
+                  <span class="badge badge-cold">❄️ {{ lead.score }}/10</span>
+                {% else %}
+                  <span class="badge">⏳ Pending</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if lead.email_sent %}
+                  <span class="badge">📧 Sent</span>
+                {% else %}
+                  <span class="badge badge-cold">⏳ Not sent</span>
+                {% endif %}
+                {% if lead.replied %} <span class="badge">💬 Replied</span>{% endif %}
+              </td>
+              <td>
+                {% if lead.website_analyzed %}
+                  <div>
+                    <span class="badge badge-success">✅ Analyzed</span>
+                    {% if lead.website_issues %}
+                      <div class="text-muted" style="font-size: 11px; margin-top: 4px; max-width: 200px;">
+                        {{ lead.website_issues[:80] }}{% if lead.website_issues|length > 80 %}...{% endif %}
+                      </div>
+                    {% endif %}
+                  </div>
+                {% elif lead.website %}
+                  <span class="badge badge-warm">⏳ Pending</span>
+                {% else %}
+                  <span class="badge badge-cold">❌ No website</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if lead.meeting_scheduled %}
+                  <span class="badge badge-success">✅ Scheduled</span>
+                {% else %}
+                  <span class="badge badge-cold">❌ Not yet</span>
+                {% endif %}
+              </td>
+              <td><a href="{{ url_for('lead_detail', lead_id=lead.id) }}" style="color: var(--accent);">View →</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 60px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 32px;">
+      <p style="color: var(--muted); margin-bottom: 16px;">No leads yet. Upload a CSV file or search for free to get started.</p>
+      <div class="flex gap-2" style="justify-content: center;">
+        <a href="{{ url_for('leads_upload', campaign_id=campaign.id) }}" class="btn btn-primary">Upload CSV</a>
+        <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-primary" style="background: #3b82f6;">📍 Find Businesses (Free)</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function checkReplies() {
+    fetch('{{ url_for("check_replies") }}', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Checking for replies... Refresh in a moment to see results.');
+        setTimeout(() => location.reload(), 3000);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error checking replies');
+    });
+}
+</script>
+{% endblock %}

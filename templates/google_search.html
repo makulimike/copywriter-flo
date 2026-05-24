@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 24px;">
+    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent);"> Back to Campaign</a>
+  </div>
+
+  <div style="margin-bottom: 32px;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Find Businesses on Google</h1>
+    <p style="color: var(--muted);">Search for businesses based on your campaign's industry and location</p>
+  </div>
+
+  <!-- Search Form -->
+  <div class="card" style="margin-bottom: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Search Parameters</h3>
+    
+    <form method="POST" action="{{ url_for('google_search', campaign_id=campaign.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      
+      <div class="form-group">
+        <label>Search Keyword / Industry</label>
+        <input type="text" name="keyword" value="{{ campaign.industry }}" placeholder="e.g., coffee shop, marketing agency, e-commerce store" required>
+        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Based on your campaign industry: <strong>{{ campaign.industry }}</strong></div>
+      </div>
+      
+      <div class="form-group">
+        <label>Location</label>
+        <input type="text" name="location" placeholder="e.g., Austin, TX or 90210" required>
+        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">City, state, or zip code</div>
+      </div>
+      
+      <div class="form-group">
+        <label>Max Results</label>
+        <select name="max_results">
+          <option value="10">10 businesses</option>
+          <option value="20" selected>20 businesses</option>
+          <option value="30">30 businesses</option>
+          <option value="50">50 businesses</option>
+        </select>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" style="background: #3b82f6;"> Search Google Places</button>
+    </form>
+  </div>
+
+  <!-- Search Results -->
+  {% if results %}
+  <div class="card">
+    <div class="flex justify-between items-center" style="margin-bottom: 16px;">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
+      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;"> Import Selected Leads</button>
+    </div>
+    
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+            <th>Business Name</th>
+            <th>Address</th>
+            <th>Phone</th>
+            <th>Rating</th>
+            <th>Website</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for biz in results %}
+          <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" class="lead-checkbox" value="{{ loop.index0 }}" data-name="{{ biz.name }}" data-company="{{ biz.company }}" data-address="{{ biz.address }}" data-phone="{{ biz.phone }}" data-website="{{ biz.website }}" data-rating="{{ biz.rating }}" data-total-ratings="{{ biz.total_ratings }}" data-place-id="{{ biz.place_id }}">
+            </td>
+            <td>
+              <strong>{{ biz.name }}</strong>
+              {% if biz.rating >= 4.5 %}
+                <span class="badge badge-hot">⭐ {{ biz.rating }}</span>
+              {% elif biz.rating >= 4.0 %}
+                <span class="badge badge-warm">⭐ {{ biz.rating }}</span>
+              {% elif biz.rating > 0 %}
+                <span class="badge">⭐ {{ biz.rating }}</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 13px;">{{ biz.address or '-' }}</td>
+            <td>{{ biz.phone or '-' }}</td>
+            <td>{{ biz.rating }}/5 ({{ biz.total_ratings }} reviews)</td>
+            <td>
+              {% if biz.website %}
+                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent);">Visit</a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <div style="margin-top: 16px; text-align: right;">
+      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;"> Import Selected Leads</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Recent Searches -->
+  {% if searches %}
+  <div class="card" style="margin-top: 32px;">
+    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Recent Searches</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Keyword</th>
+            <th>Location</th>
+            <th>Results Found</th>
+            <th>Searched On</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for search in searches %}
+          <tr>
+            <td>{{ search.keyword }}</td>
+            <td>{{ search.location or 'Any' }}</td>
+            <td>{{ search.total_results }}</td>
+            <td>{{ search.created_at[:16] }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('google_search', campaign_id=campaign.id) }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="keyword" value="{{ search.keyword }}">
+                <input type="hidden" name="location" value="{{ search.location }}">
+                <input type="hidden" name="max_results" value="20">
+                <button type="submit" class="btn btn-secondary btn-sm"> Search Again</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.lead-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+}
+
+async function importSelectedLeads() {
+    const selectedCheckboxes = document.querySelectorAll('.lead-checkbox:checked');
+    const businesses = [];
+    
+    selectedCheckboxes.forEach(cb => {
+        businesses.push({
+            name: cb.getAttribute('data-name'),
+            company: cb.getAttribute('data-company'),
+            address: cb.getAttribute('data-address'),
+            phone: cb.getAttribute('data-phone'),
+            website: cb.getAttribute('data-website'),
+            rating: parseFloat(cb.getAttribute('data-rating')) || 0,
+            total_ratings: parseInt(cb.getAttribute('data-total-ratings')) || 0,
+            place_id: cb.getAttribute('data-place-id')
+        });
+    });
+    
+    if (businesses.length === 0) {
+        alert('Please select at least one business to import.');
+        return;
+    }
+    
+    const response = await fetch('{{ url_for("import_google_leads", campaign_id=campaign.id) }}', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({ businesses: businesses })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+        alert(`Successfully imported ${result.count} leads! AI processing will start automatically.`);
+        window.location.href = '{{ url_for("campaign_detail", campaign_id=campaign.id) }}';
+    } else {
+        alert('Error importing leads: ' + result.error);
+    }
+}
+</script>
+{% endblock %}
