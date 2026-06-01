@@ -92,7 +92,6 @@ class Database:
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS api_settings (
                         user_id INTEGER PRIMARY KEY,
-                        openai_api_key TEXT,
                         openai_model TEXT DEFAULT 'gpt-3.5-turbo',
                         smtp_host TEXT DEFAULT 'smtp.gmail.com',
                         smtp_port INTEGER DEFAULT 587,
@@ -222,7 +221,7 @@ class Database:
                 ''')
                 
             else:
-                # SQLite syntax (existing code)
+                # SQLite syntax
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,7 +239,6 @@ class Database:
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS api_settings (
                         user_id INTEGER PRIMARY KEY,
-                        openai_api_key TEXT,
                         openai_model TEXT DEFAULT 'gpt-3.5-turbo',
                         smtp_host TEXT DEFAULT 'smtp.gmail.com',
                         smtp_port INTEGER DEFAULT 587,

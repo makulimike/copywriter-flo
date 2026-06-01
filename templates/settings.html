@@ -4,41 +4,29 @@
 <div class="container">
   <div style="margin-bottom: 32px;">
     <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Settings</h1>
-    <p style="color: var(--muted);">Configure your API keys, email, and notification preferences</p>
+    <p style="color: var(--muted);">Configure your email, calendar, and notification preferences</p>
   </div>
 
   <form method="POST" action="{{ url_for('settings') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     
-    <!-- OpenAI Settings -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> OpenAI Configuration</h3>
-      <div class="form-group">
-        <label>OpenAI API Key</label>
-        <input type="password" name="openai_api_key" value="{{ api_settings.openai_api_key or '' }}" placeholder="sk-..." style="font-family: monospace;">
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent);">OpenAI Platform</a></div>
-      </div>
-      <div class="form-group">
-        <label>Model</label>
-        <select name="openai_model">
-          <option value="gpt-3.5-turbo" {% if api_settings.openai_model == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo (Fast & Cheap)</option>
-          <option value="gpt-4" {% if api_settings.openai_model == 'gpt-4' %}selected{% endif %}>GPT-4 (More Accurate)</option>
-        </select>
-      </div>
+    <!-- Info about global OpenAI key -->
+    <div class="card" style="margin-bottom: 24px; background: rgba(59,130,246,0.1); border-color: #3b82f6;">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">🤖 AI Features</h3>
+      <p style="color: var(--text); font-size: 14px;">AI-powered lead scoring, website analysis, and personalized email generation are automatically available to all users.</p>
+      <p class="text-muted" style="font-size: 12px; margin-top: 8px;">OpenAI API key is configured globally by the system administrator.</p>
     </div>
 
     <!-- Business Search Info (FREE) -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Business Discovery</h3>
-      <div class="text-muted" style="font-size: 14px; padding: 12px; background: rgba(34,197,94,0.1); border-radius: 8px;">
-         <strong>FREE Business Search</strong> - Powered by OpenStreetMap<br>
-        No API key required. Search for businesses by keyword and location at no cost.
-      </div>
+    <div class="card" style="margin-bottom: 24px; background: rgba(34,197,94,0.1); border-color: #22c55e;">
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">📍 FREE Business Search</h3>
+      <p style="color: var(--text); font-size: 14px;">Powered by OpenStreetMap - No API key required. Search for businesses by keyword and location at no cost.</p>
+      <p class="text-muted" style="font-size: 12px; margin-top: 8px;">Use the "Find Businesses" button in any campaign to discover leads near you.</p>
     </div>
 
     <!-- Email Settings -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Email Configuration (SMTP)</h3>
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📧 Email Configuration (SMTP)</h3>
       <div class="form-group">
         <label>SMTP Host</label>
         <input type="text" name="smtp_host" value="{{ api_settings.smtp_host or 'smtp.gmail.com' }}">
@@ -60,7 +48,7 @@
 
     <!-- Calendly Integration -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Calendly Integration</h3>
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📅 Calendly Integration</h3>
       <div class="form-group">
         <label>Your Calendly Booking Link</label>
         <input type="url" name="meeting_link" value="{{ api_settings.meeting_link or '' }}" placeholder="https://calendly.com/yourusername/discovery-call">
@@ -70,7 +58,7 @@
 
     <!-- Auto-Send & Google Meet Settings -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Auto-Send & Google Meet</h3>
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">⚙️ Auto-Send Settings</h3>
       <div class="checkbox-row" style="margin-bottom: 16px;">
         <input type="checkbox" name="auto_send_enabled" id="auto_send_enabled" {% if api_settings.auto_send_enabled %}checked{% endif %}>
         <label for="auto_send_enabled" style="margin: 0;">Enable Auto-Send Emails</label>
@@ -80,32 +68,28 @@
         <input type="number" name="auto_send_score" value="{{ api_settings.auto_send_score or 7 }}" min="1" max="10">
         <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Leads with score ≥ this will get auto-emails</div>
       </div>
-      <div class="checkbox-row" style="margin-bottom: 16px;">
-        <input type="checkbox" name="google_meet_enabled" id="google_meet_enabled" {% if api_settings.google_meet_enabled %}checked{% endif %}>
-        <label for="google_meet_enabled" style="margin: 0;">Auto-Schedule Google Meet for Hot Leads (Score ≥ 7)</label>
-      </div>
     </div>
 
     <!-- Notification Channels -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Notification Channels</h3>
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">🔔 Notification Channels</h3>
       <div class="checkbox-row" style="margin-bottom: 12px;">
         <input type="checkbox" name="email_enabled" id="email_enabled" {% if notification_settings.email_enabled %}checked{% endif %}>
-        <label for="email_enabled" style="margin: 0;"> Email Notifications</label>
+        <label for="email_enabled" style="margin: 0;">📧 Email Notifications</label>
       </div>
       <div class="checkbox-row" style="margin-bottom: 12px;">
         <input type="checkbox" name="whatsapp_enabled" id="whatsapp_enabled" {% if notification_settings.whatsapp_enabled %}checked{% endif %}>
-        <label for="whatsapp_enabled" style="margin: 0;"> WhatsApp Notifications</label>
+        <label for="whatsapp_enabled" style="margin: 0;">💬 WhatsApp Notifications</label>
       </div>
       <div class="checkbox-row" style="margin-bottom: 12px;">
         <input type="checkbox" name="telegram_enabled" id="telegram_enabled" {% if notification_settings.telegram_enabled %}checked{% endif %}>
-        <label for="telegram_enabled" style="margin: 0;"> Telegram Notifications</label>
+        <label for="telegram_enabled" style="margin: 0;">🤖 Telegram Notifications</label>
       </div>
     </div>
 
     <!-- Contact Information -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Your Contact Info</h3>
+      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📞 Your Contact Info</h3>
       <div class="form-group">
         <label>WhatsApp Number</label>
         <input type="tel" name="whatsapp_number" value="{{ user.whatsapp_number or '' }}" placeholder="+1234567890">

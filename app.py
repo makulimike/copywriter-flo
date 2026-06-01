@@ -95,30 +95,29 @@ def require_payment(f):
     return decorated_function
 
 # ============================================
-# GLOBAL OPENAI CLIENT — per-user cache
+# GLOBAL OPENAI CLIENT — single key from env
 # ============================================
 
-_openai_clients: dict = {}
+_openai_client = None
 _openai_http_client = httpx.Client(
     follow_redirects=True,
     timeout=httpx.Timeout(60.0, connect=10.0),
     trust_env=False,
 )
 
-def get_openai_key_from_db(user_id):
-    settings = db.get_api_settings(user_id)
-    if settings:
-        settings_dict = _row_to_dict(settings)
-        return settings_dict.get('openai_api_key')
-    return None
+def get_openai_key_from_env():
+    """Get OpenAI API key from environment variables"""
+    return os.environ.get('OPENAI_API_KEY')
 
-def init_global_openai_client(user_id):
-    if user_id in _openai_clients:
-        return _openai_clients[user_id]
+def init_global_openai_client():
+    global _openai_client
+    
+    if _openai_client:
+        return _openai_client
 
-    api_key = get_openai_key_from_db(user_id)
+    api_key = get_openai_key_from_env()
     if not api_key:
-        print(f"No API key found for user {user_id}")
+        print("⚠️ No OpenAI API key found in environment variables. Please add OPENAI_API_KEY to .env file")
         return None
 
     try:
@@ -129,15 +128,18 @@ def init_global_openai_client(user_id):
             max_retries=2,
             http_client=_openai_http_client,
         )
-        _openai_clients[user_id] = client
-        print(f"✅ OpenAI client initialised for user {user_id}")
+        _openai_client = client
+        print("✅ OpenAI client initialised with global API key")
         return client
     except Exception as e:
-        print(f"❌ Error creating OpenAI client for user {user_id}: {e}")
+        print(f"❌ Error creating OpenAI client: {e}")
         return None
 
-def get_openai_client(user_id):
-    return _openai_clients.get(user_id) or init_global_openai_client(user_id)
+def get_openai_client(user_id=None):
+    """Get the global OpenAI client (user_id parameter kept for compatibility)"""
+    if _openai_client:
+        return _openai_client
+    return init_global_openai_client()
 
 # ============================================
 # HELPER: uniform sqlite3.Row → dict conversion
@@ -1035,7 +1037,7 @@ def process_lead_batch(user_id):
     auto_send_enabled = settings_dict.get('auto_send_enabled', 0)
     auto_send_score = settings_dict.get('auto_send_score', 7)
 
-    init_global_openai_client(user_id)
+    init_global_openai_client()
 
     for lead in leads:
         try:
@@ -1721,7 +1723,7 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session.permanent = True
-            init_global_openai_client(user['id'])
+            init_global_openai_client()
             flash('Login successful!', 'success')
             return redirect(next_url)
 
@@ -1731,10 +1733,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    user_id = session.get('user_id')
     session.clear()
-    if user_id and user_id in _openai_clients:
-        del _openai_clients[user_id]
     flash('Logged out', 'success')
     return redirect(url_for('index'))
 
@@ -1823,11 +1822,8 @@ def settings():
     user_dict = _row_to_dict(user)
 
     if request.method == 'POST':
-        openai_api_key = request.form.get('openai_api_key', '').strip()
-
         db.update_api_settings(
             session['user_id'],
-            openai_api_key=openai_api_key,
             openai_model=request.form.get('openai_model', 'gpt-3.5-turbo'),
             smtp_host=request.form.get('smtp_host', 'smtp.gmail.com'),
             smtp_port=int(request.form.get('smtp_port', 587)),
@@ -1838,10 +1834,6 @@ def settings():
             meeting_link=request.form.get('meeting_link', ''),
             google_meet_enabled=1 if request.form.get('google_meet_enabled') else 0,
         )
-
-        if session['user_id'] in _openai_clients:
-            del _openai_clients[session['user_id']]
-        init_global_openai_client(session['user_id'])
 
         with db.get_connection() as conn:
             cursor = conn.cursor()
@@ -2307,7 +2299,7 @@ if __name__ == '__main__':
     print("✅ AI Website Analysis: Ready")
     print("✅ Email Reply Detection: Ready (exponential back-off)")
     print("✅ Meeting Management: Ready")
-    print("✅ Per-user OpenAI client cache: Enabled")
+    print("✅ Global OpenAI client: Single key from environment")
     print("✅ Stripe Payment Integration: One-time $280 Lifetime Access")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
