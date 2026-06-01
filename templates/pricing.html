@@ -1,4 +1,3 @@
-<!-- templates/pricing.html -->
 {% extends "base.html" %}
 
 {% block content %}
@@ -53,17 +52,18 @@
       <div style="margin-top: 24px;">
         {% if has_access %}
           <a href="{{ url_for('campaign_new') }}" class="btn btn-primary" style="width: 100%;">
-             Create Campaign Now
+            🚀 Create Campaign Now
           </a>
         {% else %}
-          <button id="checkout-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
-            Pay ${{ "%.2f"|format(price) }} - Get Lifetime Access
+          <button id="paypal-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
+            <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;">
+            Pay with PayPal - ${{ "%.2f"|format(price) }}
           </button>
         {% endif %}
       </div>
       
       <p style="margin-top: 16px; font-size: 12px; color: var(--muted);">
-         Secure payment powered by Stripe
+        🔒 Secure payment powered by PayPal
       </p>
     </div>
 
@@ -72,27 +72,27 @@
       <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">What's included:</h3>
       
       <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;"> AI Lead Scoring</h4>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">🤖 AI Lead Scoring</h4>
         <p style="color: var(--muted); font-size: 14px;">Automatically score leads 1-10 based on their likelihood to need copywriting services.</p>
       </div>
       
       <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;"> Smart Email Generation</h4>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">✍️ Smart Email Generation</h4>
         <p style="color: var(--muted); font-size: 14px;">AI writes personalized cold emails based on each lead's website analysis.</p>
       </div>
       
       <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;"> Free Business Search</h4>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">📍 Free Business Search</h4>
         <p style="color: var(--muted); font-size: 14px;">Find unlimited leads using OpenStreetMap - completely free, no API key needed.</p>
       </div>
       
       <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;"> Email Tracking</h4>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">📧 Email Tracking</h4>
         <p style="color: var(--muted); font-size: 14px;">Track opens, replies, and automatically detect meeting requests.</p>
       </div>
       
       <div>
-        <h4 style="color: var(--accent); margin-bottom: 8px;"> Real-time Alerts</h4>
+        <h4 style="color: var(--accent); margin-bottom: 8px;">🔔 Real-time Alerts</h4>
         <p style="color: var(--muted); font-size: 14px;">Get notified when leads reply, want to book calls, or ask questions.</p>
       </div>
     </div>
@@ -103,57 +103,88 @@
     <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">Frequently Asked Questions</h3>
     
     <div style="margin-bottom: 16px;">
-      <strong> Is this really a one-time payment?</strong>
+      <strong>💵 Is this really a one-time payment?</strong>
       <p class="text-muted" style="margin-top: 4px;">Yes! Pay once, get lifetime access. No subscriptions, no hidden fees, no recurring charges.</p>
     </div>
     
     <div style="margin-bottom: 16px;">
-      <strong> Can I create unlimited campaigns?</strong>
+      <strong>🚀 Can I create unlimited campaigns?</strong>
       <p class="text-muted" style="margin-top: 4px;">Absolutely! After purchase, you can create as many campaigns as you want, forever.</p>
     </div>
     
     <div style="margin-bottom: 16px;">
-      <strong> Do I need my own API keys?</strong>
-      <p class="text-muted" style="margin-top: 4px;">You'll need an OpenAI API key for AI features. Everything else works out of the box.</p>
+      <strong>🔑 Do I need my own API keys?</strong>
+      <p class="text-muted" style="margin-top: 4px;">OpenAI API key is pre-configured. Everything else works out of the box.</p>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <strong>💳 What payment methods does PayPal accept?</strong>
+      <p class="text-muted" style="margin-top: 4px;">PayPal accepts credit/debit cards, bank transfers, and PayPal balance. You don't need a PayPal account to pay with credit card.</p>
     </div>
     
     <div>
-      <strong> What if I have issues?</strong>
+      <strong>❓ What if I have issues?</strong>
       <p class="text-muted" style="margin-top: 4px;">We offer support via email. Just reach out and we'll help you out.</p>
     </div>
   </div>
 </div>
 
 {% if not has_access %}
-<script src="https://js.stripe.com/v3/"></script>
 <script>
-const stripe = Stripe('{{ stripe_publishable_key }}');
-const checkoutButton = document.getElementById('checkout-button');
+const paypalButton = document.getElementById('paypal-button');
 
-if (checkoutButton) {
-  checkoutButton.addEventListener('click', async () => {
-    checkoutButton.disabled = true;
-    checkoutButton.textContent = 'Processing...';
+if (paypalButton) {
+  paypalButton.addEventListener('click', async () => {
+    paypalButton.disabled = true;
+    paypalButton.innerHTML = '<div class="spinner"></div> Processing...';
     
-    const response = await fetch('{{ url_for("create_checkout_session") }}', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCSRFToken()
+    try {
+      const response = await fetch('{{ url_for("create_paypal_payment_route") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken()
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.approvalUrl) {
+        // Redirect to PayPal for payment
+        window.location.href = result.approvalUrl;
+      } else {
+        alert('Error creating payment: ' + (result.error || 'Unknown error'));
+        paypalButton.disabled = false;
+        paypalButton.innerHTML = '<img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;"> Pay with PayPal - ${{ "%.2f"|format(price) }}';
       }
-    });
-    
-    const session = await response.json();
-    
-    if (session.url) {
-      window.location.href = session.url;
-    } else {
-      alert('Error creating payment session: ' + (session.error || 'Unknown error'));
-      checkoutButton.disabled = false;
-      checkoutButton.textContent = 'Pay ${{ "%.2f"|format(price) }} - Get Lifetime Access';
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('An error occurred. Please try again.');
+      paypalButton.disabled = false;
+      paypalButton.innerHTML = '<img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;"> Pay with PayPal - ${{ "%.2f"|format(price) }}';
     }
   });
 }
+
+// Add spinner styles if not present
+const style = document.createElement('style');
+style.textContent = `
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.6s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
 </script>
 {% endif %}
 {% endblock %}

@@ -10,3 +10,4 @@ beautifulsoup4==4.12.2
 stripe==7.5.0
 gunicorn==21.2.0
 psycopg2-binary==2.9.9
+paypalrestsdk==1.13.1

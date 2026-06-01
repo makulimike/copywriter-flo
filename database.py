@@ -1,4 +1,4 @@
-# database.py - Updated version with proper PostgreSQL row handling
+# database.py - Updated version with PayPal support
 
 import os
 import sys
@@ -200,10 +200,11 @@ class Database:
                     CREATE TABLE IF NOT EXISTS payments (
                         id SERIAL PRIMARY KEY,
                         user_id INTEGER NOT NULL,
-                        stripe_session_id TEXT UNIQUE NOT NULL,
+                        stripe_session_id TEXT UNIQUE,
+                        paypal_payment_id TEXT UNIQUE,
                         amount INTEGER,
                         currency TEXT,
-                        status TEXT DEFAULT 'completed',
+                        status TEXT DEFAULT 'pending',
                         payment_date TEXT NOT NULL,
                         FOREIGN KEY (user_id) REFERENCES users (id)
                     )
@@ -347,10 +348,11 @@ class Database:
                     CREATE TABLE IF NOT EXISTS payments (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER NOT NULL,
-                        stripe_session_id TEXT UNIQUE NOT NULL,
+                        stripe_session_id TEXT UNIQUE,
+                        paypal_payment_id TEXT UNIQUE,
                         amount INTEGER,
                         currency TEXT,
-                        status TEXT DEFAULT 'completed',
+                        status TEXT DEFAULT 'pending',
                         payment_date TEXT NOT NULL,
                         FOREIGN KEY (user_id) REFERENCES users (id)
                     )
@@ -871,7 +873,7 @@ class Database:
             if self.use_postgres:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date, p.stripe_session_id
+                           p.amount, p.currency, p.payment_date, p.paypal_payment_id
                     FROM user_access ua
                     LEFT JOIN payments p ON ua.payment_id = p.id
                     WHERE ua.user_id = %s
@@ -879,7 +881,7 @@ class Database:
             else:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date, p.stripe_session_id
+                           p.amount, p.currency, p.payment_date, p.paypal_payment_id
                     FROM user_access ua
                     LEFT JOIN payments p ON ua.payment_id = p.id
                     WHERE ua.user_id = ?
@@ -893,7 +895,7 @@ class Database:
                         'amount': result['amount'],
                         'currency': result['currency'],
                         'payment_date': result['payment_date'],
-                        'session_id': result['stripe_session_id']
+                        'payment_id': result['paypal_payment_id']
                     }
                 else:
                     return {
@@ -902,25 +904,25 @@ class Database:
                         'amount': result[2],
                         'currency': result[3],
                         'payment_date': result[4],
-                        'session_id': result[5]
+                        'payment_id': result[5]
                     }
             return {'has_access': False}
     
-    def save_payment_record(self, user_id, session_id, payment_intent, amount, currency):
+    def save_payment_record(self, user_id, payment_id, amount, currency):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             if self.use_postgres:
                 cursor.execute('''
-                    INSERT INTO payments (user_id, stripe_session_id, stripe_payment_intent, amount, currency, payment_date)
-                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-                ''', (user_id, session_id, payment_intent, amount, currency, datetime.now().isoformat()))
-                payment_id = cursor.fetchone()['id']
-                cursor.execute('UPDATE user_access SET payment_id = %s WHERE user_id = %s', (payment_id, user_id))
+                    INSERT INTO payments (user_id, paypal_payment_id, amount, currency, payment_date)
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id
+                ''', (user_id, payment_id, amount, currency, datetime.now().isoformat()))
+                payment_db_id = cursor.fetchone()['id']
+                cursor.execute('UPDATE user_access SET payment_id = %s WHERE user_id = %s', (payment_db_id, user_id))
             else:
                 cursor.execute('''
-                    INSERT INTO payments (user_id, stripe_session_id, stripe_payment_intent, amount, currency, payment_date)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (user_id, session_id, payment_intent, amount, currency, datetime.now().isoformat()))
-                payment_id = cursor.lastrowid
-                cursor.execute('UPDATE user_access SET payment_id = ? WHERE user_id = ?', (payment_id, user_id))
-            return payment_id
+                    INSERT INTO payments (user_id, paypal_payment_id, amount, currency, payment_date)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (user_id, payment_id, amount, currency, datetime.now().isoformat()))
+                payment_db_id = cursor.lastrowid
+                cursor.execute('UPDATE user_access SET payment_id = ? WHERE user_id = ?', (payment_db_id, user_id))
+            return payment_db_id

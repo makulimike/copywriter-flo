@@ -55,16 +55,13 @@ from database import Database
 db = Database()
 
 # ============================================
-# STRIPE PAYMENT INTEGRATION
+# PAYPAL PAYMENT INTEGRATION
 # ============================================
 
-import stripe
-from payment import create_payment_session, handle_successful_payment, user_has_lifetime_access, get_payment_status
+from payment import create_paypal_payment, execute_paypal_payment, user_has_lifetime_access, get_payment_status
 
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
-STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 28000))
-CURRENCY = os.environ.get('CURRENCY', 'usd')
+CURRENCY = os.environ.get('CURRENCY', 'USD')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
 
 # ============================================
@@ -1408,7 +1405,7 @@ Login to your dashboard to see full details and take action."""
         print(f"Error processing reply: {e}")
 
 # ============================================
-# STRIPE PAYMENT ROUTES
+# PAYPAL PAYMENT ROUTES
 # ============================================
 
 @app.route('/pricing')
@@ -1426,13 +1423,12 @@ def pricing():
                          price=display_price,
                          currency=CURRENCY.upper(),
                          has_access=has_access,
-                         payment_info=payment_info,
-                         stripe_publishable_key=STRIPE_PUBLISHABLE_KEY)
+                         payment_info=payment_info)
 
-@app.route('/create-checkout-session', methods=['POST'])
+@app.route('/create-paypal-payment', methods=['POST'])
 @login_required
-def create_checkout_session():
-    """Create Stripe checkout session for lifetime access"""
+def create_paypal_payment_route():
+    """Create PayPal payment for lifetime access"""
     user = db.get_user(session['user_id'])
     user_dict = _row_to_dict(user)
     email = user_dict.get('email')
@@ -1440,45 +1436,40 @@ def create_checkout_session():
     if not email:
         return jsonify({'error': 'Please add your email address in settings first'}), 400
     
-    success_url = f"{APP_URL}/payment-success"
+    return_url = f"{APP_URL}/payment-success"
     cancel_url = f"{APP_URL}/payment-cancel"
     
-    print(f"💰 Creating Stripe checkout for user {session['user_id']}")
-    print(f"   Success URL: {success_url}")
-    print(f"   Cancel URL: {cancel_url}")
+    print(f"💰 Creating PayPal payment for user {session['user_id']}")
     
-    session_id, checkout_url = create_payment_session(
+    payment_id, approval_url = create_paypal_payment(
         session['user_id'],
         email,
-        success_url,
+        return_url,
         cancel_url
     )
     
-    if checkout_url:
-        session['payment_session_id'] = session_id
-        return jsonify({'sessionId': session_id, 'url': checkout_url})
+    if approval_url:
+        session['paypal_payment_id'] = payment_id
+        return jsonify({'paymentId': payment_id, 'approvalUrl': approval_url})
     else:
-        return jsonify({'error': 'Failed to create checkout session. Please check Stripe configuration.'}), 500
+        return jsonify({'error': 'Failed to create PayPal payment. Please check PayPal configuration.'}), 500
 
 @app.route('/payment-success')
 def payment_success():
     """Payment success page - verify and grant access"""
-    session_id = request.args.get('session_id')
+    payment_id = request.args.get('paymentId')
+    payer_id = request.args.get('PayerID')
     
-    print(f"💰 Payment success callback received")
-    print(f"   Session ID: {session_id}")
-    print(f"   Session user_id: {session.get('user_id')}")
+    print(f"💰 PayPal payment success callback received")
+    print(f"   Payment ID: {payment_id}")
+    print(f"   Payer ID: {payer_id}")
     
-    if not session_id and 'payment_session_id' in session:
-        session_id = session['payment_session_id']
-    
-    if session_id:
-        success = handle_successful_payment(session_id)
+    if payment_id and payer_id:
+        success = execute_paypal_payment(payment_id, payer_id)
         
         if success:
             user_id = session.get('user_id')
             if user_id:
-                db.grant_lifetime_access(user_id)
                 flash('Payment successful! You now have LIFETIME access to all features. Create unlimited campaigns! 🎉', 'success')
             else:
                 flash('Payment successful! Please login to access your account.', 'success')
@@ -1487,55 +1478,19 @@ def payment_success():
     else:
         flash('Payment session not found.', 'error')
     
-    if 'payment_session_id' in session:
-        del session['payment_session_id']
+    if 'paypal_payment_id' in session:
+        del session['paypal_payment_id']
     
     return redirect(url_for('dashboard'))
 
 @app.route('/payment-cancel')
 def payment_cancel():
     """Payment cancelled page"""
-    if 'payment_session_id' in session:
-        del session['payment_session_id']
+    if 'paypal_payment_id' in session:
+        del session['paypal_payment_id']
     
     flash('Payment cancelled. You can purchase lifetime access when ready.', 'warning')
     return redirect(url_for('pricing'))
-
-@app.route('/stripe-webhook', methods=['POST'])
-def stripe_webhook():
-    """Handle Stripe webhook events"""
-    payload = request.get_data(as_text=True)
-    sig_header = request.headers.get('Stripe-Signature')
-    
-    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
-    
-    if not webhook_secret:
-        print("⚠️ Webhook secret not configured. Skipping signature verification.")
-        try:
-            event = json.loads(payload)
-        except:
-            return jsonify({'error': 'Invalid payload'}), 400
-    else:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-        except ValueError:
-            return jsonify({'error': 'Invalid payload'}), 400
-        except stripe.error.SignatureVerificationError:
-            return jsonify({'error': 'Invalid signature'}), 400
-    
-    if event['type'] == 'checkout.session.completed':
-        session_data = event['data']['object']
-        session_id = session_data['id']
-        metadata = session_data.get('metadata', {})
-        
-        user_id = int(metadata.get('user_id', 0))
-        
-        if user_id:
-            handle_successful_payment(session_id)
-            db.grant_lifetime_access(user_id)
-            print(f"✅ Webhook: Lifetime access granted to user {user_id}")
-    
-    return jsonify({'status': 'success'}), 200
 
 # ============================================
 # HEALTH CHECK ENDPOINT
@@ -2300,7 +2255,7 @@ if __name__ == '__main__':
     print("✅ Email Reply Detection: Ready (exponential back-off)")
     print("✅ Meeting Management: Ready")
     print("✅ Global OpenAI client: Single key from environment")
-    print("✅ Stripe Payment Integration: One-time $280 Lifetime Access")
+    print("✅ PayPal Payment Integration: One-time $280 Lifetime Access")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
     print("📱 Production URL: " + APP_URL)
