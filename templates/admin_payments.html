@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div style="margin-bottom: 32px;">
+    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">💰 Pending Payments</h1>
+    <p style="color: var(--muted);">Manually verify and confirm bank transfer payments</p>
+  </div>
+
+  {% if payments and payments|length > 0 %}
+  <div class="card">
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>User</th>
+            <th>Email</th>
+            <th>Amount</th>
+            <th>Created</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td><code style="background: #111827; padding: 2px 6px; border-radius: 4px;">{{ payment.reference }}</code></td>
+            <td>{{ payment.username }}</td>
+            <td>{{ payment.email }}</td>
+            <td>{{ payment.currency }} {{ payment.amount }}</td>
+            <td>{{ payment.created_at[:16] }}</td>
+            <td>
+              <button onclick="confirmPayment({{ payment.id }})" class="btn btn-primary" style="background: #22c55e; padding: 6px 12px;">
+                ✅ Confirm Payment
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 60px 24px;">
+    <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+    <h3 style="margin-bottom: 8px;">No Pending Payments</h3>
+    <p style="color: var(--muted);">All payments have been processed.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+async function confirmPayment(paymentId) {
+  if (!confirm('Confirm this payment and grant lifetime access to the user?')) return;
+  
+  try {
+    const response = await fetch(`/admin/confirm-payment/${paymentId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+      }
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert('✅ Payment confirmed! User now has lifetime access.');
+      location.reload();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error confirming payment');
+  }
+}
+</script>
+{% endblock %}
