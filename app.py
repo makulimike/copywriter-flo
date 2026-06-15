@@ -55,12 +55,12 @@ from database import Database
 db = Database()
 
 # ============================================
-# PAYPAL PAYMENT INTEGRATION
+# GREY PAYMENT INTEGRATION (replaces PayPal)
 # ============================================
 
-from payment import create_paypal_payment, execute_paypal_payment, user_has_lifetime_access, get_payment_status
+from payment import user_has_lifetime_access, get_payment_status, get_user_grey_payment_details, get_grey_bank_details, verify_grey_webhook_signature, handle_grey_webhook
 
-CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 28000))
+CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 280))
 CURRENCY = os.environ.get('CURRENCY', 'USD')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
 
@@ -1405,7 +1405,7 @@ Login to your dashboard to see full details and take action."""
         print(f"Error processing reply: {e}")
 
 # ============================================
-# PAYPAL PAYMENT ROUTES
+# GREY PAYMENT ROUTES (replaces PayPal)
 # ============================================
 
 @app.route('/pricing')
@@ -1417,18 +1417,16 @@ def pricing():
         has_access = user_has_lifetime_access(session['user_id'])
         payment_info = get_payment_status(session['user_id'])
     
-    display_price = CAMPAIGN_PRICE / 100
-    
     return render_template('pricing.html', 
-                         price=display_price,
+                         price=CAMPAIGN_PRICE,
                          currency=CURRENCY.upper(),
                          has_access=has_access,
                          payment_info=payment_info)
 
-@app.route('/create-paypal-payment', methods=['POST'])
+@app.route('/create-grey-payment', methods=['POST'])
 @login_required
-def create_paypal_payment_route():
-    """Create PayPal payment for lifetime access"""
+def create_grey_payment():
+    """Generate payment reference and show bank details"""
     user = db.get_user(session['user_id'])
     user_dict = _row_to_dict(user)
     email = user_dict.get('email')
@@ -1436,61 +1434,207 @@ def create_paypal_payment_route():
     if not email:
         return jsonify({'error': 'Please add your email address in settings first'}), 400
     
-    return_url = f"{APP_URL}/payment-success"
-    cancel_url = f"{APP_URL}/payment-cancel"
+    print(f"💰 Creating Grey payment for user {session['user_id']}")
     
-    print(f"💰 Creating PayPal payment for user {session['user_id']}")
+    payment_details = get_user_grey_payment_details(session['user_id'], email)
     
-    payment_id, approval_url = create_paypal_payment(
-        session['user_id'],
-        email,
-        return_url,
-        cancel_url
-    )
-    
-    if approval_url:
-        session['paypal_payment_id'] = payment_id
-        return jsonify({'paymentId': payment_id, 'approvalUrl': approval_url})
+    if payment_details:
+        session['grey_payment_reference'] = payment_details['reference']
+        session['grey_payment_id'] = payment_details['payment_id']
+        
+        return jsonify({
+            'success': True,
+            'reference': payment_details['reference'],
+            'amount': payment_details['amount'],
+            'currency': payment_details['currency'],
+            'bank_details': payment_details['bank_details']
+        })
     else:
-        return jsonify({'error': 'Failed to create PayPal payment. Please check PayPal configuration.'}), 500
+        return jsonify({'error': 'Failed to create payment. Please try again.'}), 500
+
+@app.route('/payment-instructions')
+@login_required
+def payment_instructions():
+    """Show bank transfer instructions to user"""
+    reference = session.get('grey_payment_reference')
+    
+    if not reference:
+        flash('Please start a new payment', 'warning')
+        return redirect(url_for('pricing'))
+    
+    bank_details = get_grey_bank_details()
+    amount = CAMPAIGN_PRICE
+    currency = CURRENCY
+    
+    return render_template('payment_instructions.html',
+                         reference=reference,
+                         bank_details=bank_details,
+                         amount=amount,
+                         currency=currency)
+
+@app.route('/webhook/grey', methods=['POST'])
+def grey_webhook():
+    """Handle Grey payment webhook"""
+    signature = request.headers.get('X-Grey-Signature', '')
+    
+    if not verify_grey_webhook_signature(request.data.decode('utf-8'), signature):
+        return jsonify({'error': 'Invalid signature'}), 401
+    
+    try:
+        data = request.get_json()
+        success = handle_grey_webhook(data)
+        
+        if success:
+            return jsonify({'status': 'ok'}), 200
+        else:
+            return jsonify({'status': 'ignored'}), 200
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/check-payment/<reference>', methods=['GET'])
+@login_required
+def check_payment_status(reference):
+    """Check if a payment has been confirmed"""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        if db.use_postgres:
+            cursor.execute('''
+                SELECT status, completed_at FROM grey_payments 
+                WHERE reference = %s AND user_id = %s
+            ''', (reference, session['user_id']))
+            result = cursor.fetchone()
+        else:
+            cursor.execute('''
+                SELECT status, completed_at FROM grey_payments 
+                WHERE reference = ? AND user_id = ?
+            ''', (reference, session['user_id']))
+            result = cursor.fetchone()
+        
+        if result:
+            if db.use_postgres:
+                status = result['status']
+                completed_at = result['completed_at']
+            else:
+                status = result[0]
+                completed_at = result[1]
+            
+            if status == 'completed':
+                # Refresh session access status
+                if not user_has_lifetime_access(session['user_id']):
+                    # Grant access if not already granted
+                    with db.get_connection() as conn2:
+                        cursor2 = conn2.cursor()
+                        if db.use_postgres:
+                            cursor2.execute('SELECT id FROM grey_payments WHERE reference = %s', (reference,))
+                            pay_result = cursor2.fetchone()
+                            if pay_result:
+                                from payment import grant_lifetime_access
+                                grant_lifetime_access(session['user_id'], pay_result['id'])
+                        else:
+                            cursor2.execute('SELECT id FROM grey_payments WHERE reference = ?', (reference,))
+                            pay_result = cursor2.fetchone()
+                            if pay_result:
+                                from payment import grant_lifetime_access
+                                grant_lifetime_access(session['user_id'], pay_result[0])
+                
+                return jsonify({'status': 'completed', 'completed_at': completed_at})
+            else:
+                return jsonify({'status': 'pending'})
+        
+        return jsonify({'status': 'not_found'}), 404
 
 @app.route('/payment-success')
 def payment_success():
-    """Payment success page - verify and grant access"""
-    payment_id = request.args.get('paymentId')
-    payer_id = request.args.get('PayerID')
-    
-    print(f"💰 PayPal payment success callback received")
-    print(f"   Payment ID: {payment_id}")
-    print(f"   Payer ID: {payer_id}")
-    
-    if payment_id and payer_id:
-        success = execute_paypal_payment(payment_id, payer_id)
-        
-        if success:
-            user_id = session.get('user_id')
-            if user_id:
-                flash('Payment successful! You now have LIFETIME access to all features. Create unlimited campaigns! 🎉', 'success')
-            else:
-                flash('Payment successful! Please login to access your account.', 'success')
-        else:
-            flash('Payment verification failed. Please contact support.', 'error')
+    """Payment success page after user confirms they sent the payment"""
+    reference = session.get('grey_payment_reference')
+    if reference:
+        flash('Thank you! Your payment has been recorded. You will get access once the bank transfer is confirmed (usually within 1-2 business days).', 'success')
     else:
-        flash('Payment session not found.', 'error')
+        flash('Thank you for your payment!', 'success')
     
-    if 'paypal_payment_id' in session:
-        del session['paypal_payment_id']
+    if 'grey_payment_reference' in session:
+        del session['grey_payment_reference']
+    if 'grey_payment_id' in session:
+        del session['grey_payment_id']
     
     return redirect(url_for('dashboard'))
 
 @app.route('/payment-cancel')
 def payment_cancel():
     """Payment cancelled page"""
-    if 'paypal_payment_id' in session:
-        del session['paypal_payment_id']
+    if 'grey_payment_reference' in session:
+        del session['grey_payment_reference']
+    if 'grey_payment_id' in session:
+        del session['grey_payment_id']
     
     flash('Payment cancelled. You can purchase lifetime access when ready.', 'warning')
     return redirect(url_for('pricing'))
+
+@app.route('/admin/confirm-payment/<int:payment_id>', methods=['POST'])
+@login_required
+def admin_confirm_payment(payment_id):
+    """Admin endpoint to manually confirm a payment (for manual verification)"""
+    user = db.get_user(session['user_id'])
+    user_dict = _row_to_dict(user)
+    
+    # Check if user is admin
+    if user_dict.get('username') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        if db.use_postgres:
+            cursor.execute('''
+                SELECT user_id, status FROM grey_payments WHERE id = %s
+            ''', (payment_id,))
+            payment = cursor.fetchone()
+            
+            if payment and payment['status'] == 'pending':
+                cursor.execute('''
+                    UPDATE grey_payments 
+                    SET status = 'completed', completed_at = %s
+                    WHERE id = %s
+                ''', (datetime.now().isoformat(), payment_id))
+                
+                from payment import grant_lifetime_access
+                grant_lifetime_access(payment['user_id'], payment_id)
+                
+                return jsonify({'success': True, 'message': 'Payment confirmed and access granted'})
+        else:
+            cursor.execute('''
+                SELECT user_id, status FROM grey_payments WHERE id = ?
+            ''', (payment_id,))
+            payment = cursor.fetchone()
+            
+            if payment and payment[1] == 'pending':
+                cursor.execute('''
+                    UPDATE grey_payments 
+                    SET status = 'completed', completed_at = ?
+                    WHERE id = ?
+                ''', (datetime.now().isoformat(), payment_id))
+                
+                from payment import grant_lifetime_access
+                grant_lifetime_access(payment[0], payment_id)
+                
+                return jsonify({'success': True, 'message': 'Payment confirmed and access granted'})
+    
+    return jsonify({'error': 'Payment not found or already completed'}), 404
+
+@app.route('/admin/pending-payments')
+@login_required
+def admin_pending_payments():
+    """Admin view to see pending payments"""
+    user = db.get_user(session['user_id'])
+    user_dict = _row_to_dict(user)
+    
+    if user_dict.get('username') != 'admin':
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    
+    pending_payments = db.get_pending_grey_payments()
+    
+    return render_template('admin_payments.html', payments=pending_payments)
 
 # ============================================
 # HEALTH CHECK ENDPOINT
@@ -2255,7 +2399,7 @@ if __name__ == '__main__':
     print("✅ Email Reply Detection: Ready (exponential back-off)")
     print("✅ Meeting Management: Ready")
     print("✅ Global OpenAI client: Single key from environment")
-    print("✅ PayPal Payment Integration: One-time $280 Lifetime Access")
+    print("✅ Grey Payment Integration: One-time $280 Lifetime Access")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
     print("📱 Production URL: " + APP_URL)

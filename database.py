@@ -1,4 +1,4 @@
-# database.py - Updated version with PayPal support
+# database.py - Updated version with Grey payment support
 
 import os
 import sys
@@ -196,16 +196,18 @@ class Database:
                     )
                 ''')
                 
+                # Grey payments table (replaces old payments table)
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS payments (
+                    CREATE TABLE IF NOT EXISTS grey_payments (
                         id SERIAL PRIMARY KEY,
                         user_id INTEGER NOT NULL,
-                        stripe_session_id TEXT UNIQUE,
-                        paypal_payment_id TEXT UNIQUE,
-                        amount INTEGER,
-                        currency TEXT,
+                        reference TEXT UNIQUE NOT NULL,
+                        transaction_id TEXT,
+                        amount INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
                         status TEXT DEFAULT 'pending',
-                        payment_date TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        completed_at TEXT,
                         FOREIGN KEY (user_id) REFERENCES users (id)
                     )
                 ''')
@@ -217,7 +219,7 @@ class Database:
                         access_granted_at TEXT,
                         payment_id INTEGER,
                         FOREIGN KEY (user_id) REFERENCES users (id),
-                        FOREIGN KEY (payment_id) REFERENCES payments (id)
+                        FOREIGN KEY (payment_id) REFERENCES grey_payments (id)
                     )
                 ''')
                 
@@ -344,16 +346,18 @@ class Database:
                     )
                 ''')
                 
+                # Grey payments table (replaces old payments table)
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS payments (
+                    CREATE TABLE IF NOT EXISTS grey_payments (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER NOT NULL,
-                        stripe_session_id TEXT UNIQUE,
-                        paypal_payment_id TEXT UNIQUE,
-                        amount INTEGER,
-                        currency TEXT,
+                        reference TEXT UNIQUE NOT NULL,
+                        transaction_id TEXT,
+                        amount INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
                         status TEXT DEFAULT 'pending',
-                        payment_date TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        completed_at TEXT,
                         FOREIGN KEY (user_id) REFERENCES users (id)
                     )
                 ''')
@@ -365,7 +369,7 @@ class Database:
                         access_granted_at TEXT,
                         payment_id INTEGER,
                         FOREIGN KEY (user_id) REFERENCES users (id),
-                        FOREIGN KEY (payment_id) REFERENCES payments (id)
+                        FOREIGN KEY (payment_id) REFERENCES grey_payments (id)
                     )
                 ''')
     
@@ -829,7 +833,7 @@ class Database:
             return [self._row_to_dict(r) for r in results] if results else []
     
     # ============================================
-    # PAYMENT & ACCESS METHODS
+    # GREY PAYMENT & ACCESS METHODS
     # ============================================
     
     def user_has_lifetime_access(self, user_id):
@@ -847,25 +851,45 @@ class Database:
                     return result[0] == 1
             return False
     
-    def grant_lifetime_access(self, user_id):
+    def grant_lifetime_access(self, user_id, payment_id=None):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             if self.use_postgres:
-                cursor.execute('''
-                    INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
-                    VALUES (%s, 1, %s)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        has_lifetime_access = 1,
-                        access_granted_at = %s
-                ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
+                if payment_id:
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                        VALUES (%s, 1, %s, %s)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = %s,
+                            payment_id = %s
+                    ''', (user_id, datetime.now().isoformat(), payment_id, datetime.now().isoformat(), payment_id))
+                else:
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
+                        VALUES (%s, 1, %s)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = %s
+                    ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
             else:
-                cursor.execute('''
-                    INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
-                    VALUES (?, 1, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        has_lifetime_access = 1,
-                        access_granted_at = ?
-                ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
+                if payment_id:
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                        VALUES (?, 1, ?, ?)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = ?,
+                            payment_id = ?
+                    ''', (user_id, datetime.now().isoformat(), payment_id, datetime.now().isoformat(), payment_id))
+                else:
+                    cursor.execute('''
+                        INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
+                        VALUES (?, 1, ?)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            has_lifetime_access = 1,
+                            access_granted_at = ?
+                    ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
     
     def get_user_payment_info(self, user_id):
         with self.get_connection() as conn:
@@ -873,18 +897,22 @@ class Database:
             if self.use_postgres:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date, p.paypal_payment_id
+                           gp.amount, gp.currency, gp.completed_at as payment_date, gp.reference, gp.status
                     FROM user_access ua
-                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    LEFT JOIN grey_payments gp ON ua.payment_id = gp.id
                     WHERE ua.user_id = %s
+                    ORDER BY gp.created_at DESC
+                    LIMIT 1
                 ''', (user_id,))
             else:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date, p.paypal_payment_id
+                           gp.amount, gp.currency, gp.completed_at as payment_date, gp.reference, gp.status
                     FROM user_access ua
-                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    LEFT JOIN grey_payments gp ON ua.payment_id = gp.id
                     WHERE ua.user_id = ?
+                    ORDER BY gp.created_at DESC
+                    LIMIT 1
                 ''', (user_id,))
             result = cursor.fetchone()
             if result:
@@ -895,7 +923,8 @@ class Database:
                         'amount': result['amount'],
                         'currency': result['currency'],
                         'payment_date': result['payment_date'],
-                        'payment_id': result['paypal_payment_id']
+                        'reference': result['reference'],
+                        'status': result['status']
                     }
                 else:
                     return {
@@ -904,25 +933,85 @@ class Database:
                         'amount': result[2],
                         'currency': result[3],
                         'payment_date': result[4],
-                        'payment_id': result[5]
+                        'reference': result[5],
+                        'status': result[6]
                     }
-            return {'has_access': False}
+            return {'has_access': False, 'status': None}
     
-    def save_payment_record(self, user_id, payment_id, amount, currency):
+    def save_grey_payment(self, user_id, reference, amount, currency, status='pending'):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             if self.use_postgres:
                 cursor.execute('''
-                    INSERT INTO payments (user_id, paypal_payment_id, amount, currency, payment_date)
-                    VALUES (%s, %s, %s, %s, %s) RETURNING id
-                ''', (user_id, payment_id, amount, currency, datetime.now().isoformat()))
-                payment_db_id = cursor.fetchone()['id']
-                cursor.execute('UPDATE user_access SET payment_id = %s WHERE user_id = %s', (payment_db_id, user_id))
+                    INSERT INTO grey_payments (user_id, reference, amount, currency, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                ''', (user_id, reference, amount, currency, status, datetime.now().isoformat()))
+                return cursor.fetchone()['id']
             else:
                 cursor.execute('''
-                    INSERT INTO payments (user_id, paypal_payment_id, amount, currency, payment_date)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_id, payment_id, amount, currency, datetime.now().isoformat()))
-                payment_db_id = cursor.lastrowid
-                cursor.execute('UPDATE user_access SET payment_id = ? WHERE user_id = ?', (payment_db_id, user_id))
-            return payment_db_id
+                    INSERT INTO grey_payments (user_id, reference, amount, currency, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (user_id, reference, amount, currency, status, datetime.now().isoformat()))
+                return cursor.lastrowid
+    
+    def update_grey_payment_status(self, reference, status, transaction_id=None):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if self.use_postgres:
+                if transaction_id:
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = %s, completed_at = %s, transaction_id = %s
+                        WHERE reference = %s
+                    ''', (status, datetime.now().isoformat(), transaction_id, reference))
+                else:
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = %s, completed_at = %s
+                        WHERE reference = %s
+                    ''', (status, datetime.now().isoformat(), reference))
+            else:
+                if transaction_id:
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = ?, completed_at = ?, transaction_id = ?
+                        WHERE reference = ?
+                    ''', (status, datetime.now().isoformat(), transaction_id, reference))
+                else:
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = ?, completed_at = ?
+                        WHERE reference = ?
+                    ''', (status, datetime.now().isoformat(), reference))
+    
+    def get_grey_payment_by_reference(self, reference):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if self.use_postgres:
+                cursor.execute('SELECT * FROM grey_payments WHERE reference = %s', (reference,))
+            else:
+                cursor.execute('SELECT * FROM grey_payments WHERE reference = ?', (reference,))
+            result = cursor.fetchone()
+            return self._row_to_dict(result)
+    
+    def get_pending_grey_payments(self):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if self.use_postgres:
+                cursor.execute('''
+                    SELECT gp.*, u.username, u.email 
+                    FROM grey_payments gp
+                    JOIN users u ON gp.user_id = u.id
+                    WHERE gp.status = 'pending'
+                    ORDER BY gp.created_at DESC
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT gp.*, u.username, u.email 
+                    FROM grey_payments gp
+                    JOIN users u ON gp.user_id = u.id
+                    WHERE gp.status = 'pending'
+                    ORDER BY gp.created_at DESC
+                ''')
+            results = cursor.fetchall()
+            return [self._row_to_dict(r) for r in results] if results else []

@@ -55,15 +55,14 @@
             🚀 Create Campaign Now
           </a>
         {% else %}
-          <button id="paypal-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
-            <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;">
-            Pay with PayPal - ${{ "%.2f"|format(price) }}
+          <button id="payment-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
+            💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}
           </button>
         {% endif %}
       </div>
       
       <p style="margin-top: 16px; font-size: 12px; color: var(--muted);">
-        🔒 Secure payment powered by PayPal
+        🔒 Secure bank transfer via Grey • Instant access confirmation
       </p>
     </div>
 
@@ -98,6 +97,16 @@
     </div>
   </div>
 
+  <!-- Payment Info Section (for pending payments) -->
+  {% if payment_info and payment_info.status and payment_info.status == 'pending' %}
+  <div class="card" style="margin-top: 24px; text-align: center; background: rgba(249,115,22,0.1); border-color: var(--accent);">
+    <h3 style="margin-bottom: 8px;">⏳ Payment Pending</h3>
+    <p>Your payment of ${{ payment_info.amount }} {{ payment_info.currency }} is being processed.</p>
+    <p class="text-muted" style="font-size: 13px;">Reference: <strong>{{ payment_info.reference }}</strong></p>
+    <a href="{{ url_for('payment_instructions') }}" class="btn btn-primary" style="margin-top: 12px;">View Payment Instructions</a>
+  </div>
+  {% endif %}
+
   <!-- FAQ Section -->
   <div class="card" style="margin-top: 32px;">
     <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">Frequently Asked Questions</h3>
@@ -118,8 +127,13 @@
     </div>
     
     <div style="margin-bottom: 16px;">
-      <strong>💳 What payment methods does PayPal accept?</strong>
-      <p class="text-muted" style="margin-top: 4px;">PayPal accepts credit/debit cards, bank transfers, and PayPal balance. You don't need a PayPal account to pay with credit card.</p>
+      <strong>💳 What payment methods do you accept?</strong>
+      <p class="text-muted" style="margin-top: 4px;">We accept bank transfers via Grey. You can pay from any bank account worldwide.</p>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <strong>⏱️ How long until I get access?</strong>
+      <p class="text-muted" style="margin-top: 4px;">Once your bank transfer is confirmed (usually 1-2 business days), access is granted automatically. You'll get an email confirmation.</p>
     </div>
     
     <div>
@@ -131,15 +145,15 @@
 
 {% if not has_access %}
 <script>
-const paypalButton = document.getElementById('paypal-button');
+const paymentButton = document.getElementById('payment-button');
 
-if (paypalButton) {
-  paypalButton.addEventListener('click', async () => {
-    paypalButton.disabled = true;
-    paypalButton.innerHTML = '<div class="spinner"></div> Processing...';
+if (paymentButton) {
+  paymentButton.addEventListener('click', async () => {
+    paymentButton.disabled = true;
+    paymentButton.innerHTML = '<div class="spinner"></div> Creating payment...';
     
     try {
-      const response = await fetch('{{ url_for("create_paypal_payment_route") }}', {
+      const response = await fetch('{{ url_for("create_grey_payment") }}', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,19 +163,18 @@ if (paypalButton) {
       
       const result = await response.json();
       
-      if (result.approvalUrl) {
-        // Redirect to PayPal for payment
-        window.location.href = result.approvalUrl;
+      if (result.success) {
+        window.location.href = '{{ url_for("payment_instructions") }}';
       } else {
         alert('Error creating payment: ' + (result.error || 'Unknown error'));
-        paypalButton.disabled = false;
-        paypalButton.innerHTML = '<img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;"> Pay with PayPal - ${{ "%.2f"|format(price) }}';
+        paymentButton.disabled = false;
+        paymentButton.innerHTML = '💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}';
       }
     } catch (error) {
       console.error('Payment error:', error);
       alert('An error occurred. Please try again.');
-      paypalButton.disabled = false;
-      paypalButton.innerHTML = '<img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.png" style="height: 20px; vertical-align: middle; margin-right: 8px;"> Pay with PayPal - ${{ "%.2f"|format(price) }}';
+      paymentButton.disabled = false;
+      paymentButton.innerHTML = '💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}';
     }
   });
 }

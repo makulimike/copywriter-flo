@@ -1,151 +1,151 @@
-# payment.py
-import paypalrestsdk
+# payment.py - Grey payment integration
 import os
+import hashlib
+import hmac
 from datetime import datetime
 from database import Database
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure PayPal
-paypalrestsdk.configure({
-    "mode": os.environ.get('PAYPAL_MODE', 'sandbox'),
-    "client_id": os.environ.get('PAYPAL_CLIENT_ID'),
-    "client_secret": os.environ.get('PAYPAL_CLIENT_SECRET')
-})
+# Grey configuration
+GREY_API_KEY = os.environ.get('GREY_API_KEY')
+GREY_ACCOUNT_ID = os.environ.get('GREY_ACCOUNT_ID')
+GREY_WEBHOOK_SECRET = os.environ.get('GREY_WEBHOOK_SECRET', 'your-webhook-secret-here-change-this')
 
-CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 28000)) / 100  # Convert to dollars
+CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 280))  # $280 USD
 CURRENCY = os.environ.get('CURRENCY', 'USD')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
 
 db = Database()
 
-def create_paypal_payment(user_id, email, return_url, cancel_url):
-    """Create a PayPal payment for lifetime access"""
-    try:
-        payment = paypalrestsdk.Payment({
-            "intent": "sale",
-            "payer": {
-                "payment_method": "paypal"
-            },
-            "redirect_urls": {
-                "return_url": return_url,
-                "cancel_url": cancel_url
-            },
-            "transactions": [{
-                "item_list": {
-                    "items": [{
-                        "name": "Copywriterflo - Lifetime Access",
-                        "sku": "LIFETIME-001",
-                        "price": str(CAMPAIGN_PRICE),
-                        "currency": CURRENCY,
-                        "quantity": 1
-                    }]
-                },
-                "amount": {
-                    "currency": CURRENCY,
-                    "total": str(CAMPAIGN_PRICE)
-                },
-                "description": "One-time payment for lifetime access to unlimited campaigns, AI lead scoring, email automation, business search, and all future features."
-            }],
-            "note_to_payer": "Thank you for your purchase! You will get lifetime access to Copywriterflo."
-        })
 
-        if payment.create():
-            print(f"✅ PayPal payment created: {payment.id}")
-            
-            # Store payment info in database
-            with db.get_connection() as conn:
-                cursor = conn.cursor()
-                if db.use_postgres:
-                    cursor.execute('''
-                        INSERT INTO payments (user_id, paypal_payment_id, amount, currency, status, payment_date)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    ''', (user_id, payment.id, int(CAMPAIGN_PRICE * 100), CURRENCY, 'pending', datetime.now().isoformat()))
-                else:
-                    cursor.execute('''
-                        INSERT INTO payments (user_id, paypal_payment_id, amount, currency, status, payment_date)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (user_id, payment.id, int(CAMPAIGN_PRICE * 100), CURRENCY, 'pending', datetime.now().isoformat()))
-            
-            # Get approval URL
-            for link in payment.links:
-                if link.rel == "approval_url":
-                    return payment.id, link.href
-            
-            return payment.id, None
+def get_grey_bank_details():
+    """Get your Grey bank account details for receiving payments"""
+    return {
+        'bank_name': os.environ.get('GREY_BANK_NAME', 'Grey'),
+        'account_name': os.environ.get('GREY_ACCOUNT_NAME', 'Your Business Name'),
+        'account_number': os.environ.get('GREY_ACCOUNT_NUMBER', ''),
+        'routing_number': os.environ.get('GREY_ROUTING_NUMBER', ''),
+        'iban': os.environ.get('GREY_IBAN', ''),
+        'swift_bic': os.environ.get('GREY_SWIFT_BIC', ''),
+        'currency': CURRENCY,
+        'reference_instructions': "Use your unique reference code when sending payment"
+    }
+
+
+def get_user_grey_payment_details(user_id, user_email):
+    """Generate unique payment reference for a user"""
+    timestamp = int(datetime.now().timestamp())
+    reference = f"COPYWRITER-{user_id}-{timestamp}"
+    
+    # Store pending payment in database
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        if db.use_postgres:
+            cursor.execute('''
+                INSERT INTO grey_payments (user_id, reference, amount, currency, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (user_id, reference, CAMPAIGN_PRICE, CURRENCY, 'pending', datetime.now().isoformat()))
+            payment_id = cursor.fetchone()['id']
         else:
-            print(f"❌ PayPal payment creation failed: {payment.error}")
-            return None, None
-            
-    except Exception as e:
-        print(f"❌ Error creating PayPal payment: {e}")
-        import traceback
-        traceback.print_exc()
-        return None, None
+            cursor.execute('''
+                INSERT INTO grey_payments (user_id, reference, amount, currency, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, reference, CAMPAIGN_PRICE, CURRENCY, 'pending', datetime.now().isoformat()))
+            payment_id = cursor.lastrowid
+    
+    return {
+        'reference': reference,
+        'payment_id': payment_id,
+        'amount': CAMPAIGN_PRICE,
+        'currency': CURRENCY,
+        'bank_details': get_grey_bank_details()
+    }
 
-def execute_paypal_payment(payment_id, payer_id):
-    """Execute a PayPal payment after user approval"""
-    try:
-        payment = paypalrestsdk.Payment.find(payment_id)
+
+def verify_grey_webhook_signature(request_body, signature_header):
+    """Verify that the webhook came from Grey"""
+    expected_signature = hmac.new(
+        GREY_WEBHOOK_SECRET.encode('utf-8'),
+        request_body.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(expected_signature, signature_header)
+
+
+def handle_grey_webhook(data):
+    """Process incoming Grey webhook for payment confirmation"""
+    event_type = data.get('event')
+    payment_data = data.get('data', {})
+    
+    if event_type == 'payment.received':
+        reference = payment_data.get('reference', '')
+        amount = payment_data.get('amount')
+        currency = payment_data.get('currency')
         
-        if payment.execute({"payer_id": payer_id}):
-            print(f"✅ PayPal payment executed: {payment_id}")
-            
-            # Get user_id from database
-            with db.get_connection() as conn:
-                cursor = conn.cursor()
-                if db.use_postgres:
-                    cursor.execute('SELECT user_id FROM payments WHERE paypal_payment_id = %s', (payment_id,))
-                    result = cursor.fetchone()
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            if db.use_postgres:
+                cursor.execute('''
+                    SELECT id, user_id, status FROM grey_payments 
+                    WHERE reference = %s AND amount = %s AND currency = %s
+                ''', (reference, amount, currency))
+                payment = cursor.fetchone()
+                
+                if payment and payment['status'] == 'pending':
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = 'completed', completed_at = %s, transaction_id = %s
+                        WHERE id = %s
+                    ''', (datetime.now().isoformat(), payment_data.get('transaction_id'), payment['id']))
                     
-                    if result:
-                        user_id = result['user_id']
-                        
-                        # Update payment status
-                        cursor.execute('''
-                            UPDATE payments SET status = 'completed' WHERE paypal_payment_id = %s
-                        ''', (payment_id,))
-                        
-                        # Grant lifetime access
-                        cursor.execute('''
-                            INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
-                            VALUES (%s, 1, %s)
-                            ON CONFLICT(user_id) DO UPDATE SET
-                                has_lifetime_access = 1,
-                                access_granted_at = %s
-                        ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
-                        
-                        return True
-                else:
-                    cursor.execute('SELECT user_id FROM payments WHERE paypal_payment_id = ?', (payment_id,))
-                    result = cursor.fetchone()
+                    grant_lifetime_access(payment['user_id'], payment['id'])
+                    return True
+            else:
+                cursor.execute('''
+                    SELECT id, user_id, status FROM grey_payments 
+                    WHERE reference = ? AND amount = ? AND currency = ?
+                ''', (reference, amount, currency))
+                payment = cursor.fetchone()
+                
+                if payment and payment[2] == 'pending':
+                    cursor.execute('''
+                        UPDATE grey_payments 
+                        SET status = 'completed', completed_at = ?, transaction_id = ?
+                        WHERE id = ?
+                    ''', (datetime.now().isoformat(), payment_data.get('transaction_id'), payment[0]))
                     
-                    if result:
-                        user_id = result[0]
-                        
-                        # Update payment status
-                        cursor.execute('''
-                            UPDATE payments SET status = 'completed' WHERE paypal_payment_id = ?
-                        ''', (payment_id,))
-                        
-                        # Grant lifetime access
-                        cursor.execute('''
-                            INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at)
-                            VALUES (?, 1, ?)
-                            ON CONFLICT(user_id) DO UPDATE SET
-                                has_lifetime_access = 1,
-                                access_granted_at = ?
-                        ''', (user_id, datetime.now().isoformat(), datetime.now().isoformat()))
-                        
-                        return True
-            return False
+                    grant_lifetime_access(payment[1], payment[0])
+                    return True
+    
+    return False
+
+
+def grant_lifetime_access(user_id, payment_id):
+    """Grant lifetime access to user after payment confirmation"""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        if db.use_postgres:
+            cursor.execute('''
+                INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                VALUES (%s, 1, %s, %s)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    has_lifetime_access = 1,
+                    access_granted_at = %s,
+                    payment_id = %s
+            ''', (user_id, datetime.now().isoformat(), payment_id, datetime.now().isoformat(), payment_id))
         else:
-            print(f"❌ PayPal payment execution failed: {payment.error}")
-            return False
-    except Exception as e:
-        print(f"❌ Error executing PayPal payment: {e}")
-        return False
+            cursor.execute('''
+                INSERT INTO user_access (user_id, has_lifetime_access, access_granted_at, payment_id)
+                VALUES (?, 1, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    has_lifetime_access = 1,
+                    access_granted_at = ?,
+                    payment_id = ?
+            ''', (user_id, datetime.now().isoformat(), payment_id, datetime.now().isoformat(), payment_id))
+
 
 def user_has_lifetime_access(user_id):
     """Check if user has paid for lifetime access"""
@@ -167,6 +167,7 @@ def user_has_lifetime_access(user_id):
         print(f"Error checking lifetime access: {e}")
         return False
 
+
 def get_payment_status(user_id):
     """Get detailed payment status for user"""
     try:
@@ -175,10 +176,12 @@ def get_payment_status(user_id):
             if db.use_postgres:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date
+                           gp.amount, gp.currency, gp.completed_at, gp.reference, gp.status
                     FROM user_access ua
-                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    LEFT JOIN grey_payments gp ON ua.payment_id = gp.id
                     WHERE ua.user_id = %s
+                    ORDER BY gp.created_at DESC
+                    LIMIT 1
                 ''', (user_id,))
                 result = cursor.fetchone()
                 if result:
@@ -187,15 +190,19 @@ def get_payment_status(user_id):
                         'granted_at': result['access_granted_at'],
                         'amount': result['amount'],
                         'currency': result['currency'],
-                        'payment_date': result['payment_date']
+                        'payment_date': result['completed_at'],
+                        'reference': result['reference'],
+                        'status': result['status']
                     }
             else:
                 cursor.execute('''
                     SELECT ua.has_lifetime_access, ua.access_granted_at, 
-                           p.amount, p.currency, p.payment_date
+                           gp.amount, gp.currency, gp.completed_at, gp.reference, gp.status
                     FROM user_access ua
-                    LEFT JOIN payments p ON ua.payment_id = p.id
+                    LEFT JOIN grey_payments gp ON ua.payment_id = gp.id
                     WHERE ua.user_id = ?
+                    ORDER BY gp.created_at DESC
+                    LIMIT 1
                 ''', (user_id,))
                 result = cursor.fetchone()
                 if result:
@@ -204,9 +211,11 @@ def get_payment_status(user_id):
                         'granted_at': result[1],
                         'amount': result[2],
                         'currency': result[3],
-                        'payment_date': result[4]
+                        'payment_date': result[4],
+                        'reference': result[5],
+                        'status': result[6]
                     }
-            return {'has_access': False}
+            return {'has_access': False, 'status': None}
     except Exception as e:
         print(f"Error getting payment status: {e}")
-        return {'has_access': False}
+        return {'has_access': False, 'status': None}
