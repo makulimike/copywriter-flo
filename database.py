@@ -5,12 +5,20 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+
+# Load .env file as fallback for Render
+load_dotenv()
 
 class Database:
     def __init__(self):
         self.database_url = os.environ.get('DATABASE_URL')
         if not self.database_url:
-            raise ValueError("DATABASE_URL environment variable is required. Set it in .env file")
+            # Try loading from .env as fallback
+            load_dotenv()
+            self.database_url = os.environ.get('DATABASE_URL')
+            if not self.database_url:
+                raise ValueError("DATABASE_URL environment variable is required. Set it in .env file or Render environment variables")
         
         print("✅ Using PostgreSQL database")
         self.init_db()

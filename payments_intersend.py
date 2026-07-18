@@ -9,6 +9,10 @@ import uuid
 import requests
 import json
 from database import Database
+from dotenv import load_dotenv
+
+# Load .env as fallback
+load_dotenv()
 
 db = Database()
 

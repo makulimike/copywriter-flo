@@ -1,5 +1,8 @@
 # app.py - Updated with Intersend Card Payment Integration & Free Trial
 
+from dotenv import load_dotenv
+load_dotenv()  # Must be before any other imports
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask_wtf.csrf import CSRFProtect
 import openai
@@ -22,15 +25,12 @@ from email.mime.multipart import MIMEMultipart
 from email.header import decode_header
 from datetime import datetime, timedelta
 from functools import wraps
-from dotenv import load_dotenv
 import json
 import uuid
 import httpx
 from collections import deque
 import base64
 import html as html_module
-
-load_dotenv()
 
 app = Flask(__name__)
 
@@ -41,7 +41,11 @@ csrf.init_app(app)
 # Get secret keys from environment variables
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
-    raise ValueError("SECRET_KEY environment variable is not set. Please add it to .env file")
+    # Try loading .env again as fallback
+    load_dotenv()
+    app.secret_key = os.environ.get('SECRET_KEY')
+    if not app.secret_key:
+        raise ValueError("SECRET_KEY environment variable is not set. Please add it to .env file or Render environment variables")
 
 # Session configuration
 app.config['SESSION_PERMANENT'] = True
