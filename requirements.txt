@@ -20,13 +20,17 @@ httpx==0.27.0
 beautifulsoup4==4.12.3
 lxml==5.1.0
 
-# QR Code (no Pillow build issues)
+# QR Code
 qrcode==7.4.2
 
 # Email Validation
 email-validator==2.1.0
 
+# Production Server (CRITICAL for Render)
+gunicorn==21.2.0
+
 # Other dependencies
 itsdangerous==2.1.2
 MarkupSafe==2.1.5
 WTForms==3.1.0
+Pillow==10.3.0
