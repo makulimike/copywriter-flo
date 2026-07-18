@@ -2,29 +2,29 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Add Leads to "{{ campaign.name }}"</h1>
-    <p style="color: var(--muted);">Upload a CSV file or add leads manually.</p>
+  <div class="page-head">
+    <h1>Add Leads to "{{ campaign.name }}"</h1>
+    <p>Upload a CSV file or add leads manually.</p>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+  <div class="grid-2">
     <!-- CSV Upload -->
     <div class="card">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Upload CSV File</h3>
-      <p class="text-muted" style="margin-bottom: 16px; font-size: 14px;">CSV should have columns: name, email, company, website, phone</p>
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">📄 Upload CSV File</h3>
+      <p class="text-muted mb-2" style="font-size: 13.5px;">CSV should have columns: name, email, company, website, phone</p>
       <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="file" name="csv_file" accept=".csv" required style="margin-bottom: 16px;">
-        <button type="submit" class="btn btn-primary">Upload & Process</button>
+        <button type="submit" class="btn btn-primary">Upload &amp; Process</button>
       </form>
-      <div style="margin-top: 16px;">
-        <a href="{{ url_for('download_csv_template') }}" style="color: var(--accent); font-size: 13px;"> Download CSV Template</a>
+      <div class="mt-2">
+        <a href="{{ url_for('download_csv_template') }}" style="color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 600;">↓ Download CSV Template</a>
       </div>
     </div>
 
     <!-- Manual Entry -->
     <div class="card">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Add Manually</h3>
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">✍️ Add Manually</h3>
       <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
@@ -53,7 +53,7 @@
   </div>
 
   <div style="margin-top: 32px; text-align: center;">
-    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" class="btn btn-secondary"> Back to Campaign</a>
+    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" class="btn btn-secondary">← Back to Campaign</a>
   </div>
 </div>
 {% endblock %}

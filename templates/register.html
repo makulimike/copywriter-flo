@@ -1,26 +1,61 @@
-
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 100px 24px; position: relative; overflow: hidden; }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 44px 40px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: var(--shadow-lift);
+    position: relative;
+    z-index: 2;
+  }
+  .auth-mark { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .auth-mark .dot { width: 9px; height: 9px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); transform: rotate(45deg); box-shadow: 0 0 14px rgba(255,106,61,.6); }
+  .auth-mark span { font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  .auth-card h1 { font-family: var(--font-display); font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .auth-card > p.sub { color: var(--muted); text-align: center; font-size: 13.5px; margin-bottom: 28px; }
+  .perks {
+    background: var(--accent-dim);
+    border: 1px solid rgba(255,106,61,.25);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+  }
+  .perks h3 { font-family: var(--font-display); font-size: 12.5px; color: var(--accent); margin-bottom: 10px; letter-spacing: .02em; text-transform: uppercase; }
+  .perks ul { list-style: none; font-size: 13px; color: var(--muted); }
+  .perks li { padding: 4px 0; display: flex; gap: 8px; align-items: baseline; }
+  .perks li::before { content: '✓'; color: var(--accent); font-weight: 700; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .auth-foot { text-align: center; margin-top: 22px; font-size: 13px; color: var(--muted); }
+  .auth-foot a { color: var(--accent); font-weight: 600; text-decoration: none; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 100px 24px;">
-  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 460px;">
-    <div style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; color: var(--accent); text-align: center; margin-bottom: 4px;">Copywriterflo</div>
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 8px;">Start Getting Clients</h1>
-    <p style="color: var(--muted); text-align: center; font-size: 14px; margin-bottom: 32px;">Create your account and get access to AI-powered tools.</p>
-    
-    <div style="background: rgba(249,115,22,.07); border: 1px solid rgba(249,115,22,.2); border-radius: 12px; padding: 16px; margin-bottom: 28px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 14px; color: var(--accent); margin-bottom: 8px;">You're getting:</h3>
-      <ul style="list-style: none; font-size: 13px; color: var(--muted); line-height: 1.9;">
-        <li>✓ AI lead scoring (GPT-4 powered)</li>
-        <li>✓ Personalized outreach email generator</li>
-        <li>✓ Hot lead multi-channel alerts</li>
-        <li>✓ Campaign analytics dashboard</li>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-mark"><span class="dot"></span><span>COPYWRITERFLO</span></div>
+    <h1>Start Getting Clients</h1>
+    <p class="sub">Create your account and get access to AI-powered tools.</p>
+
+    <div class="perks">
+      <h3>You're getting</h3>
+      <ul>
+        <li>AI lead scoring (GPT-4 powered)</li>
+        <li>Personalized outreach email generator</li>
+        <li>Hot lead multi-channel alerts</li>
+        <li>Campaign analytics dashboard</li>
       </ul>
     </div>
-    
+
     <form method="POST">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="field-row">
         <div class="form-group">
           <label>Username</label>
           <input type="text" name="username" placeholder="johncopy" required>
@@ -38,11 +73,9 @@
         <label>Password</label>
         <input type="password" name="password" placeholder="At least 6 characters" required minlength="6">
       </div>
-      <button type="submit" class="btn btn-primary" style="width: 100%;">Create My Account </button>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Create My Account</button>
     </form>
-    <p style="text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted);">
-      Already have an account? <a href="{{ url_for('login') }}" style="color: var(--accent);">Sign in</a>
-    </p>
+    <p class="auth-foot">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
   </div>
 </div>
 {% endblock %}

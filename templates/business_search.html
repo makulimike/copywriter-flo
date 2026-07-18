@@ -2,46 +2,46 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 24px;">
-    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent);">← Back to Campaign</a>
+  <div style="margin-bottom: 20px;">
+    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 600;">← Back to Campaign</a>
   </div>
 
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Find Businesses (FREE - OpenStreetMap)</h1>
-    <p style="color: var(--muted);">Search for real physical businesses based on your campaign's industry and location</p>
+  <div class="page-head">
+    <h1>Find Businesses <span class="badge badge-success" style="vertical-align: middle;">FREE · OpenStreetMap</span></h1>
+    <p>Search for real physical businesses based on your campaign's industry and location</p>
   </div>
 
   <!-- Tips Section -->
-  <div class="card" style="margin-bottom: 24px; background: rgba(34,197,94,0.1); border-color: #22c55e;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">💡 Search Tips for Better Results:</h3>
-    <ul style="color: var(--muted); font-size: 13px; line-height: 1.8;">
-      <li>• Use specific business types: <strong>restaurant, hotel, coffee shop, salon, clinic, school, supermarket</strong></li>
-      <li>• Instead of "e commerce", try: <strong>online store, retail shop, boutique</strong></li>
-      <li>• For service businesses, try: <strong>marketing agency, consulting firm, law firm, accounting firm</strong></li>
+  <div class="card mb-3" style="background: var(--green-dim); border-color: rgba(52,211,153,.3);">
+    <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 12px;">💡 Search Tips for Better Results</h3>
+    <ul style="color: var(--muted); font-size: 13px; line-height: 1.9; list-style: none;">
+      <li>• Use specific business types: <strong style="color: var(--text);">restaurant, hotel, coffee shop, salon, clinic, school, supermarket</strong></li>
+      <li>• Instead of "e commerce", try: <strong style="color: var(--text);">online store, retail shop, boutique</strong></li>
+      <li>• For service businesses, try: <strong style="color: var(--text);">marketing agency, consulting firm, law firm, accounting firm</strong></li>
       <li>• OpenStreetMap works best for physical locations with addresses</li>
-      <li>• Try searching without "Kenya" - just the city name works better</li>
+      <li>• Try searching without "Kenya" — just the city name works better</li>
     </ul>
   </div>
 
   <!-- Search Form -->
-  <div class="card" style="margin-bottom: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">🔍 Search Parameters</h3>
-    
+  <div class="card mb-3">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">🔍 Search Parameters</h3>
+
     <form method="POST" action="{{ url_for('business_search', campaign_id=campaign.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      
+
       <div class="form-group">
         <label>Search Keyword / Business Type</label>
         <input type="text" name="keyword" value="{{ campaign.industry }}" placeholder="e.g., restaurant, hotel, coffee shop, salon, clinic" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Try specific business types for best results</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Try specific business types for best results</div>
       </div>
-      
+
       <div class="form-group">
         <label>Location (City only works best)</label>
         <input type="text" name="location" placeholder="e.g., Nairobi, Mombasa, Kisumu" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Just the city name works best (e.g., Nairobi, not Nairobi, Kenya)</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Just the city name works best (e.g., Nairobi, not Nairobi, Kenya)</div>
       </div>
-      
+
       <div class="form-group">
         <label>Max Results</label>
         <select name="max_results">
@@ -51,43 +51,42 @@
           <option value="50">50 businesses</option>
         </select>
       </div>
-      
-      <!-- AI Enhancement Toggle -->
-      <div class="checkbox-row" style="margin-bottom: 16px; margin-top: 16px;">
+
+      <div class="checkbox-row mb-2 mt-2">
         <input type="checkbox" name="use_ai" id="use_ai" checked>
-        <label for="use_ai" style="margin: 0;">🤖 Use AI to enhance search (better keywords & business data)</label>
+        <label for="use_ai" style="margin: 0; text-transform: none; font-weight: 500; color: var(--text); font-size: 14px;">🤖 Use AI to enhance search (better keywords &amp; business data)</label>
       </div>
-      <div class="text-muted" style="font-size: 12px; margin-left: 24px; margin-bottom: 16px;">
+      <div class="text-muted mb-2" style="font-size: 12px; margin-left: 24px;">
         AI will suggest better search terms and try to find website/contact info for businesses
       </div>
-      
-      <button type="submit" class="btn btn-primary" style="background: #3b82f6;">🔍 Search Businesses</button>
+
+      <button type="submit" class="btn btn-primary" style="background: var(--blue); color: #061018; box-shadow: 0 8px 20px -8px rgba(94,179,246,.55);">🔍 Search Businesses</button>
     </form>
-    <p class="text-muted" style="margin-top: 12px; font-size: 12px;">✅ Powered by OpenStreetMap - Completely FREE, no API key needed</p>
+    <p class="text-muted mt-2" style="font-size: 12px;">✅ Powered by OpenStreetMap — completely FREE, no API key needed</p>
   </div>
 
   <!-- AI Suggestions -->
   {% if alternative_terms and alternative_terms|length > 0 %}
-  <div class="card" style="margin-bottom: 24px; background: rgba(59,130,246,0.1); border-color: #3b82f6;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">🤖 AI Suggested Alternative Search Terms:</h3>
+  <div class="card mb-3" style="background: var(--blue-dim); border-color: rgba(94,179,246,.3);">
+    <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 12px;">🤖 AI Suggested Alternative Search Terms</h3>
     <div class="flex gap-2" style="flex-wrap: wrap;">
       {% for term in alternative_terms %}
-      <button onclick="suggestSearch('{{ term }}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">{{ term }}</button>
+      <button onclick="suggestSearch('{{ term }}')" class="btn btn-secondary" style="font-size: 12px; padding: 7px 14px;">{{ term }}</button>
       {% endfor %}
     </div>
-    <p class="text-muted" style="margin-top: 12px; font-size: 12px;">Click any term to search with that keyword</p>
+    <p class="text-muted mt-2" style="font-size: 12px;">Click any term to search with that keyword</p>
   </div>
   {% endif %}
 
   <!-- Search Results -->
   {% if results %}
-  <div class="card">
-    <div class="flex justify-between items-center" style="margin-bottom: 16px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
-      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;">📥 Import Selected Leads</button>
+  <div class="card" style="padding: 22px;">
+    <div class="flex justify-between items-center mb-2" style="flex-wrap: wrap; gap: 12px;">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
+      <button onclick="importSelectedLeads()" class="btn btn-success">📥 Import Selected Leads</button>
     </div>
-    
-    <div style="overflow-x: auto;">
+
+    <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 12px;">
       <table style="width: 100%;">
         <thead>
           <tr>
@@ -111,10 +110,10 @@
                      data-place-id="{{ biz.place_id }}">
             </td>
             <td><strong>{{ biz.name }}</strong></td>
-            <td style="font-size: 13px;">{{ biz.address or '-' }}</td>
+            <td style="font-size: 13px; color: var(--muted);">{{ biz.address or '-' }}</td>
             <td>
               {% if biz.website %}
-                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent);">Visit</a>
+                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">Visit</a>
               {% else %}
                 <span class="text-muted">-</span>
               {% endif %}
@@ -125,17 +124,17 @@
         </tbody>
       </table>
     </div>
-    
+
     <div style="margin-top: 16px; text-align: right;">
-      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;">📥 Import Selected Leads</button>
+      <button onclick="importSelectedLeads()" class="btn btn-success">📥 Import Selected Leads</button>
     </div>
   </div>
   {% elif request.method == 'POST' %}
-  <div class="card" style="text-align: center; padding: 40px; background: rgba(239,68,68,0.1); border-color: #ef4444;">
-    <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
+  <div class="card" style="text-align: center; padding: 40px; background: var(--red-dim); border-color: rgba(251,113,133,.3);">
+    <div style="font-size: 44px; margin-bottom: 16px;">🔍</div>
     <h3 style="margin-bottom: 8px;">No businesses found</h3>
-    <p style="color: var(--muted);">Try these suggestions:</p>
-    <ul style="color: var(--muted); text-align: left; max-width: 400px; margin: 16px auto;">
+    <p class="text-muted">Try these suggestions:</p>
+    <ul style="color: var(--muted); text-align: left; max-width: 400px; margin: 16px auto; line-height: 1.9; list-style: none;">
       <li>• Use a more specific business type (restaurant, hotel, salon, etc.)</li>
       <li>• Try a different location (just the city name)</li>
       <li>• Try "Nairobi" instead of "Nairobi, Kenya"</li>
@@ -147,9 +146,9 @@
 
   <!-- Recent Searches -->
   {% if searches %}
-  <div class="card" style="margin-top: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📜 Recent Searches</h3>
-    <div style="overflow-x: auto;">
+  <div class="card mt-3" style="padding: 0; overflow: hidden;">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; padding: 22px 22px 0;">📜 Recent Searches</h3>
+    <div style="overflow-x: auto; margin-top: 16px;">
       <table style="width: 100%;">
         <thead>
           <tr>
@@ -166,7 +165,7 @@
             <td>{{ search.keyword }}</td>
             <td>{{ search.location or 'Any' }}</td>
             <td>{{ search.total_results }}</td>
-            <td>{{ search.created_at[:16] }}</td>
+            <td class="text-muted">{{ search.created_at[:16] }}</td>
             <td>
               <form method="POST" action="{{ url_for('business_search', campaign_id=campaign.id) }}" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

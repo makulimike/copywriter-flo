@@ -1,3 +1,5 @@
+# app.py - Updated with Intersend Card Payment Integration
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask_wtf.csrf import CSRFProtect
 import openai
@@ -55,14 +57,19 @@ from database import Database
 db = Database()
 
 # ============================================
-# GREY PAYMENT INTEGRATION (replaces PayPal)
+# INTERSEND PAYMENT INTEGRATION (Card Payments)
 # ============================================
 
-from payment import user_has_lifetime_access, get_payment_status, get_user_grey_payment_details, get_grey_bank_details, verify_grey_webhook_signature, handle_grey_webhook
+from payments_intersend import intersend_payment
 
 CAMPAIGN_PRICE = int(os.environ.get('CAMPAIGN_PRICE_AMOUNT', 280))
 CURRENCY = os.environ.get('CURRENCY', 'USD')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
+INTERSEND_ENABLED = os.environ.get("INTERSEND_ENABLED", "True").lower() == "true"
+
+def user_has_lifetime_access(user_id):
+    """Check if user has lifetime access"""
+    return intersend_payment.user_has_lifetime_access(user_id)
 
 # ============================================
 # MAKE FUNCTIONS AVAILABLE TO ALL TEMPLATES
@@ -139,7 +146,7 @@ def get_openai_client(user_id=None):
     return init_global_openai_client()
 
 # ============================================
-# HELPER: uniform sqlite3.Row → dict conversion
+# HELPER: uniform row → dict conversion
 # ============================================
 
 def _row_to_dict(row):
@@ -430,7 +437,7 @@ Website HTML preview:
         return "Website analysis failed", "Run AI processing again", "Website needs copywriting help", "Standard lead"
 
 # ============================================
-# GLOBAL BUSINESS SEARCH
+# GLOBAL BUSINESS SEARCH (OpenStreetMap)
 # ============================================
 
 OSM_TAG_MAP = {
@@ -967,16 +974,10 @@ def send_confirmation_request(lead, user_id):
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute(
-                'UPDATE leads SET confirmation_token = %s, confirmation_sent_at = %s WHERE id = %s',
-                (confirmation_token, datetime.now().isoformat(), lead['id']),
-            )
-        else:
-            cursor.execute(
-                'UPDATE leads SET confirmation_token = ?, confirmation_sent_at = ? WHERE id = ?',
-                (confirmation_token, datetime.now().isoformat(), lead['id']),
-            )
+        cursor.execute(
+            'UPDATE leads SET confirmation_token = %s, confirmation_sent_at = %s WHERE id = %s',
+            (confirmation_token, datetime.now(), lead['id']),
+        )
 
     confirm_url = f"{APP_URL}/confirm-meeting/{confirmation_token}"
     decline_url = f"{APP_URL}/decline-meeting/{confirmation_token}"
@@ -1102,23 +1103,14 @@ def check_email_replies_background():
         try:
             with db.get_connection() as conn:
                 cursor = conn.cursor()
-                if db.use_postgres:
-                    cursor.execute("""
-                        SELECT DISTINCT user_id FROM api_settings
-                        WHERE smtp_user IS NOT NULL AND smtp_user != ''
-                    """)
-                else:
-                    cursor.execute("""
-                        SELECT DISTINCT user_id FROM api_settings
-                        WHERE smtp_user IS NOT NULL AND smtp_user != ''
-                    """)
+                cursor.execute("""
+                    SELECT DISTINCT user_id FROM api_settings
+                    WHERE smtp_user IS NOT NULL AND smtp_user != ''
+                """)
                 users = cursor.fetchall()
 
             for user in users:
-                if db.use_postgres:
-                    check_and_process_replies(user['user_id'])
-                else:
-                    check_and_process_replies(user[0])
+                check_and_process_replies(user['user_id'])
 
             backoff = 120
             time.sleep(backoff)
@@ -1187,20 +1179,12 @@ def check_and_process_replies(user_id):
 def find_lead_by_email(email_address, user_id):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute("""
-                SELECT l.*, c.name as campaign_name, c.industry, c.user_id
-                FROM leads l
-                JOIN campaigns c ON l.campaign_id = c.id
-                WHERE l.email = %s AND c.user_id = %s
-            """, (email_address, user_id))
-        else:
-            cursor.execute("""
-                SELECT l.*, c.name as campaign_name, c.industry, c.user_id
-                FROM leads l
-                JOIN campaigns c ON l.campaign_id = c.id
-                WHERE l.email = ? AND c.user_id = ?
-            """, (email_address, user_id))
+        cursor.execute("""
+            SELECT l.*, c.name as campaign_name, c.industry, c.user_id
+            FROM leads l
+            JOIN campaigns c ON l.campaign_id = c.id
+            WHERE l.email = %s AND c.user_id = %s
+        """, (email_address, user_id))
         result = cursor.fetchone()
         if result:
             return _row_to_dict(result)
@@ -1303,7 +1287,7 @@ Your Copywriting Consultant"""
                     meeting_time = (datetime.now() + timedelta(days=1)).replace(
                         hour=10, minute=0, second=0, microsecond=0
                     )
-                    db.mark_meeting_scheduled(lead['id'], meeting_link, meeting_time.isoformat())
+                    db.mark_meeting_scheduled(lead['id'], meeting_link, meeting_time)
                     reply_email_body = f"""Hi {lead['name']},
 
 Great! Your meeting has been scheduled for {meeting_time.strftime('%B %d, %Y at %I:%M %p')}.
@@ -1319,34 +1303,19 @@ Your Copywriting Consultant"""
                     lead['email'], "Meeting Confirmation",
                     generate_html_email(reply_email_body, ''), user_id,
                 )
-                if db.use_postgres:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='meeting_scheduled', notes=%s WHERE id=%s
-                    """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
-                else:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='meeting_scheduled', notes=? WHERE id=?
-                    """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                cursor.execute("""
+                    UPDATE leads SET replied=1, status='meeting_scheduled', notes=%s WHERE id=%s
+                """, (f"HOT reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"🔥 {lead['name']} is HOT — scheduled meeting")
             elif category == "INTERESTED":
-                if db.use_postgres:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='interested', notes=%s WHERE id=%s
-                    """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
-                else:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='interested', notes=? WHERE id=?
-                    """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                cursor.execute("""
+                    UPDATE leads SET replied=1, status='interested', notes=%s WHERE id=%s
+                """, (f"Interested reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"📝 {lead['name']} is interested — follow up needed")
             elif category == "NOT_INTERESTED":
-                if db.use_postgres:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='not_interested', notes=%s WHERE id=%s
-                    """, (f"Not interested: {reply_body[:500]}", lead['id']))
-                else:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='not_interested', notes=? WHERE id=?
-                    """, (f"Not interested: {reply_body[:500]}", lead['id']))
+                cursor.execute("""
+                    UPDATE leads SET replied=1, status='not_interested', notes=%s WHERE id=%s
+                """, (f"Not interested: {reply_body[:500]}", lead['id']))
                 print(f"❌ {lead['name']} is not interested")
             elif category == "QUESTION":
                 q_response = client.chat.completions.create(
@@ -1359,24 +1328,14 @@ Your Copywriting Consultant"""
                 )
                 answer = q_response.choices[0].message.content.strip()
                 send_html_email(lead['email'], "Answering your question", generate_html_email(answer, ''), user_id)
-                if db.use_postgres:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='question_answered', notes=%s WHERE id=%s
-                    """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
-                else:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='question_answered', notes=? WHERE id=?
-                    """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
+                cursor.execute("""
+                    UPDATE leads SET replied=1, status='question_answered', notes=%s WHERE id=%s
+                """, (f"Question: {reply_body[:500]}\nAnswer sent: {answer[:200]}", lead['id']))
                 print(f"❓ Answered question from {lead['name']}")
             else:
-                if db.use_postgres:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='follow_up_needed', notes=%s WHERE id=%s
-                    """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
-                else:
-                    cursor.execute("""
-                        UPDATE leads SET replied=1, status='follow_up_needed', notes=? WHERE id=?
-                    """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
+                cursor.execute("""
+                    UPDATE leads SET replied=1, status='follow_up_needed', notes=%s WHERE id=%s
+                """, (f"Reply: {reply_body[:500]}\nAI Analysis: {reason}", lead['id']))
                 print(f"🔄 {lead['name']} needs follow-up — {reason}")
 
             conn.commit()
@@ -1405,7 +1364,7 @@ Login to your dashboard to see full details and take action."""
         print(f"Error processing reply: {e}")
 
 # ============================================
-# GREY PAYMENT ROUTES (replaces PayPal)
+# INTERSEND PAYMENT ROUTES
 # ============================================
 
 @app.route('/pricing')
@@ -1415,18 +1374,23 @@ def pricing():
     
     if 'user_id' in session:
         has_access = user_has_lifetime_access(session['user_id'])
-        payment_info = get_payment_status(session['user_id'])
+        payment_info = intersend_payment.get_payment_info(session['user_id'])
     
     return render_template('pricing.html', 
                          price=CAMPAIGN_PRICE,
                          currency=CURRENCY.upper(),
                          has_access=has_access,
-                         payment_info=payment_info)
+                         payment_info=payment_info,
+                         intersend_enabled=INTERSEND_ENABLED,
+                         supported_currencies=intersend_payment.supported_currencies)
 
-@app.route('/create-grey-payment', methods=['POST'])
+@app.route('/create-intersend-payment', methods=['POST'])
 @login_required
-def create_grey_payment():
-    """Generate payment reference and show bank details"""
+def create_intersend_payment():
+    """Create an Intersend card payment"""
+    if not INTERSEND_ENABLED:
+        return jsonify({'error': 'Card payments are not enabled'}), 400
+    
     user = db.get_user(session['user_id'])
     user_dict = _row_to_dict(user)
     email = user_dict.get('email')
@@ -1434,207 +1398,107 @@ def create_grey_payment():
     if not email:
         return jsonify({'error': 'Please add your email address in settings first'}), 400
     
-    print(f"💰 Creating Grey payment for user {session['user_id']}")
+    # Get the selected currency from the request
+    currency = request.json.get('currency', 'USD')
     
-    payment_details = get_user_grey_payment_details(session['user_id'], email)
+    result = intersend_payment.create_payment(
+        user_id=session['user_id'],
+        user_email=email,
+        currency=currency
+    )
     
-    if payment_details:
-        session['grey_payment_reference'] = payment_details['reference']
-        session['grey_payment_id'] = payment_details['payment_id']
-        
+    if result['success']:
         return jsonify({
             'success': True,
-            'reference': payment_details['reference'],
-            'amount': payment_details['amount'],
-            'currency': payment_details['currency'],
-            'bank_details': payment_details['bank_details']
+            'order_id': result['order_id'],
+            'checkout_url': result['checkout_url'],
+            'amount': result['amount'],
+            'currency': result['currency'],
+            'provider': 'intersend',
+            'email_sent': True,
+            'email': email
         })
     else:
-        return jsonify({'error': 'Failed to create payment. Please try again.'}), 500
+        return jsonify({'error': result.get('error', 'Failed to create payment')}), 500
 
-@app.route('/payment-instructions')
+@app.route('/payment/intersend/<order_id>/callback')
 @login_required
-def payment_instructions():
-    """Show bank transfer instructions to user"""
-    reference = session.get('grey_payment_reference')
+def intersend_callback(order_id):
+    """Callback after Intersend payment redirect"""
+    payment = intersend_payment.get_payment_status(order_id)
     
-    if not reference:
-        flash('Please start a new payment', 'warning')
+    if not payment:
+        flash('Payment not found', 'error')
         return redirect(url_for('pricing'))
     
-    bank_details = get_grey_bank_details()
-    amount = CAMPAIGN_PRICE
-    currency = CURRENCY
-    
-    return render_template('payment_instructions.html',
-                         reference=reference,
-                         bank_details=bank_details,
-                         amount=amount,
-                         currency=currency)
+    if payment['status'] == 'completed':
+        flash('Payment confirmed! Your lifetime access is now active.', 'success')
+        return redirect(url_for('dashboard'))
+    elif payment['status'] == 'pending':
+        flash('Payment is still being processed. You will receive confirmation shortly.', 'info')
+        return redirect(url_for('pricing'))
+    else:
+        flash('Payment failed or was cancelled. Please try again.', 'error')
+        return redirect(url_for('pricing'))
 
-@app.route('/webhook/grey', methods=['POST'])
-def grey_webhook():
-    """Handle Grey payment webhook"""
-    signature = request.headers.get('X-Grey-Signature', '')
+@app.route('/webhook/intersend', methods=['POST'])
+def intersend_webhook():
+    """Webhook for Intersend payment status updates"""
+    # Verify webhook secret if configured
+    webhook_secret = request.headers.get('X-Webhook-Secret')
+    expected_secret = os.environ.get('INTERSEND_WEBHOOK_SECRET')
     
-    if not verify_grey_webhook_signature(request.data.decode('utf-8'), signature):
-        return jsonify({'error': 'Invalid signature'}), 401
+    if expected_secret and webhook_secret != expected_secret:
+        return jsonify({'error': 'Invalid webhook secret'}), 401
     
-    try:
-        data = request.get_json()
-        success = handle_grey_webhook(data)
-        
-        if success:
-            return jsonify({'status': 'ok'}), 200
-        else:
-            return jsonify({'status': 'ignored'}), 200
-    except Exception as e:
-        print(f"Webhook error: {e}")
-        return jsonify({'error': str(e)}), 500
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data received'}), 400
+    
+    # Extract payment information
+    provider_payment_id = data.get('payment_id') or data.get('id')
+    status = data.get('status') or data.get('payment_status')
+    transaction_id = data.get('transaction_id')
+    
+    if not provider_payment_id or not status:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    # Confirm payment
+    result = intersend_payment.confirm_payment(provider_payment_id, status, transaction_id)
+    
+    if result['success']:
+        return jsonify({'success': True}), 200
+    else:
+        return jsonify({'error': result.get('error', 'Failed to process webhook')}), 500
 
-@app.route('/check-payment/<reference>', methods=['GET'])
+@app.route('/payment-status/<order_id>')
 @login_required
-def check_payment_status(reference):
-    """Check if a payment has been confirmed"""
-    with db.get_connection() as conn:
-        cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute('''
-                SELECT status, completed_at FROM grey_payments 
-                WHERE reference = %s AND user_id = %s
-            ''', (reference, session['user_id']))
-            result = cursor.fetchone()
-        else:
-            cursor.execute('''
-                SELECT status, completed_at FROM grey_payments 
-                WHERE reference = ? AND user_id = ?
-            ''', (reference, session['user_id']))
-            result = cursor.fetchone()
-        
-        if result:
-            if db.use_postgres:
-                status = result['status']
-                completed_at = result['completed_at']
-            else:
-                status = result[0]
-                completed_at = result[1]
-            
-            if status == 'completed':
-                # Refresh session access status
-                if not user_has_lifetime_access(session['user_id']):
-                    # Grant access if not already granted
-                    with db.get_connection() as conn2:
-                        cursor2 = conn2.cursor()
-                        if db.use_postgres:
-                            cursor2.execute('SELECT id FROM grey_payments WHERE reference = %s', (reference,))
-                            pay_result = cursor2.fetchone()
-                            if pay_result:
-                                from payment import grant_lifetime_access
-                                grant_lifetime_access(session['user_id'], pay_result['id'])
-                        else:
-                            cursor2.execute('SELECT id FROM grey_payments WHERE reference = ?', (reference,))
-                            pay_result = cursor2.fetchone()
-                            if pay_result:
-                                from payment import grant_lifetime_access
-                                grant_lifetime_access(session['user_id'], pay_result[0])
-                
-                return jsonify({'status': 'completed', 'completed_at': completed_at})
-            else:
-                return jsonify({'status': 'pending'})
-        
-        return jsonify({'status': 'not_found'}), 404
+def payment_status(order_id):
+    """Payment status endpoint for polling"""
+    payment = intersend_payment.get_payment_status(order_id)
+    
+    if not payment:
+        return jsonify({'error': 'Payment not found'}), 404
+    
+    return jsonify({
+        'success': True,
+        'status': payment['status'],
+        'amount': payment['amount'],
+        'currency': payment['currency'],
+    })
 
 @app.route('/payment-success')
 def payment_success():
-    """Payment success page after user confirms they sent the payment"""
-    reference = session.get('grey_payment_reference')
-    if reference:
-        flash('Thank you! Your payment has been recorded. You will get access once the bank transfer is confirmed (usually within 1-2 business days).', 'success')
-    else:
-        flash('Thank you for your payment!', 'success')
-    
-    if 'grey_payment_reference' in session:
-        del session['grey_payment_reference']
-    if 'grey_payment_id' in session:
-        del session['grey_payment_id']
-    
+    """Payment success page"""
+    flash('Payment confirmed! Your lifetime access is now active.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/payment-cancel')
 def payment_cancel():
     """Payment cancelled page"""
-    if 'grey_payment_reference' in session:
-        del session['grey_payment_reference']
-    if 'grey_payment_id' in session:
-        del session['grey_payment_id']
-    
     flash('Payment cancelled. You can purchase lifetime access when ready.', 'warning')
     return redirect(url_for('pricing'))
-
-@app.route('/admin/confirm-payment/<int:payment_id>', methods=['POST'])
-@login_required
-def admin_confirm_payment(payment_id):
-    """Admin endpoint to manually confirm a payment (for manual verification)"""
-    user = db.get_user(session['user_id'])
-    user_dict = _row_to_dict(user)
-    
-    # Check if user is admin
-    if user_dict.get('username') != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
-    
-    with db.get_connection() as conn:
-        cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute('''
-                SELECT user_id, status FROM grey_payments WHERE id = %s
-            ''', (payment_id,))
-            payment = cursor.fetchone()
-            
-            if payment and payment['status'] == 'pending':
-                cursor.execute('''
-                    UPDATE grey_payments 
-                    SET status = 'completed', completed_at = %s
-                    WHERE id = %s
-                ''', (datetime.now().isoformat(), payment_id))
-                
-                from payment import grant_lifetime_access
-                grant_lifetime_access(payment['user_id'], payment_id)
-                
-                return jsonify({'success': True, 'message': 'Payment confirmed and access granted'})
-        else:
-            cursor.execute('''
-                SELECT user_id, status FROM grey_payments WHERE id = ?
-            ''', (payment_id,))
-            payment = cursor.fetchone()
-            
-            if payment and payment[1] == 'pending':
-                cursor.execute('''
-                    UPDATE grey_payments 
-                    SET status = 'completed', completed_at = ?
-                    WHERE id = ?
-                ''', (datetime.now().isoformat(), payment_id))
-                
-                from payment import grant_lifetime_access
-                grant_lifetime_access(payment[0], payment_id)
-                
-                return jsonify({'success': True, 'message': 'Payment confirmed and access granted'})
-    
-    return jsonify({'error': 'Payment not found or already completed'}), 404
-
-@app.route('/admin/pending-payments')
-@login_required
-def admin_pending_payments():
-    """Admin view to see pending payments"""
-    user = db.get_user(session['user_id'])
-    user_dict = _row_to_dict(user)
-    
-    if user_dict.get('username') != 'admin':
-        flash('Admin access required', 'error')
-        return redirect(url_for('dashboard'))
-    
-    pending_payments = db.get_pending_grey_payments()
-    
-    return render_template('admin_payments.html', payments=pending_payments)
 
 # ============================================
 # HEALTH CHECK ENDPOINT
@@ -1646,7 +1510,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'database': 'postgresql' if db.use_postgres else 'sqlite',
+        'database': 'postgresql',
         'version': '1.0.0'
     }), 200
 
@@ -1661,52 +1525,31 @@ def meetings():
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        
-        if db.use_postgres:
-            cursor.execute("""
-                SELECT l.id, l.name, l.company, l.email, l.phone,
-                       l.meeting_link, l.meeting_time, l.status,
-                       c.name as campaign_name
-                FROM leads l
-                JOIN campaigns c ON l.campaign_id = c.id
-                WHERE c.user_id = %s AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
-                ORDER BY
-                    CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
-            """, (user_id,))
-        else:
-            cursor.execute("""
-                SELECT l.id, l.name, l.company, l.email, l.phone,
-                       l.meeting_link, l.meeting_time, l.status,
-                       c.name as campaign_name
-                FROM leads l
-                JOIN campaigns c ON l.campaign_id = c.id
-                WHERE c.user_id = ? AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
-                ORDER BY
-                    CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
-            """, (user_id,))
-        
+        cursor.execute("""
+            SELECT l.id, l.name, l.company, l.email, l.phone,
+                   l.meeting_link, l.meeting_time, l.status,
+                   c.name as campaign_name
+            FROM leads l
+            JOIN campaigns c ON l.campaign_id = c.id
+            WHERE c.user_id = %s AND (l.meeting_scheduled = 1 OR l.status = 'calendly_sent')
+            ORDER BY
+                CASE WHEN l.meeting_time IS NOT NULL THEN l.meeting_time ELSE '9999-12-31' END ASC
+        """, (user_id,))
         rows = cursor.fetchall()
 
     meetings_list = []
     for r in rows:
-        if db.use_postgres:
-            meetings_list.append({
-                'id': r['id'],
-                'name': r['name'],
-                'company': r['company'],
-                'email': r['email'],
-                'phone': r['phone'],
-                'meeting_link': r['meeting_link'],
-                'meeting_time': r['meeting_time'],
-                'status': r['status'],
-                'campaign_name': r['campaign_name']
-            })
-        else:
-            meetings_list.append({
-                'id': r[0], 'name': r[1], 'company': r[2], 'email': r[3],
-                'phone': r[4], 'meeting_link': r[5], 'meeting_time': r[6],
-                'status': r[7], 'campaign_name': r[8],
-            })
+        meetings_list.append({
+            'id': r['id'],
+            'name': r['name'],
+            'company': r['company'],
+            'email': r['email'],
+            'phone': r['phone'],
+            'meeting_link': r['meeting_link'],
+            'meeting_time': r['meeting_time'],
+            'status': r['status'],
+            'campaign_name': r['campaign_name']
+        })
     
     return render_template('meetings.html', meetings=meetings_list)
 
@@ -1730,7 +1573,7 @@ def reschedule_meeting(lead_id):
     except ValueError:
         return jsonify({'error': 'Invalid time format. Use YYYY-MM-DD HH:MM'}), 400
 
-    db.update_lead(lead_id, meeting_time=new_time.isoformat())
+    db.update_lead(lead_id, meeting_time=new_time)
     lead_dict = _row_to_dict(lead)
 
     if lead_dict.get('email'):
@@ -1844,37 +1687,23 @@ def logout():
 def confirm_meeting(token):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = %s", (token,))
-        else:
-            cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = ?", (token,))
+        cursor.execute("SELECT id, email, name FROM leads WHERE confirmation_token = %s", (token,))
         lead = cursor.fetchone()
 
         if not lead:
             return "Invalid or expired link", 404
 
-        if db.use_postgres:
-            lead_id = lead['id']
-            lead_email = lead['email']
-            lead_name = lead['name']
-        else:
-            lead_id = lead[0]
-            lead_email = lead[1]
-            lead_name = lead[2]
+        lead_id = lead['id']
+        lead_email = lead['email']
+        lead_name = lead['name']
         
         meeting_link = create_google_meet_link()
         meeting_time = (datetime.now() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
 
-        if db.use_postgres:
-            cursor.execute("""
-                UPDATE leads SET meeting_scheduled=1, meeting_link=%s, meeting_time=%s, status='meeting_scheduled'
-                WHERE id=%s
-            """, (meeting_link, meeting_time.isoformat(), lead_id))
-        else:
-            cursor.execute("""
-                UPDATE leads SET meeting_scheduled=1, meeting_link=?, meeting_time=?, status='meeting_scheduled'
-                WHERE id=?
-            """, (meeting_link, meeting_time.isoformat(), lead_id))
+        cursor.execute("""
+            UPDATE leads SET meeting_scheduled=1, meeting_link=%s, meeting_time=%s, status='meeting_scheduled'
+            WHERE id=%s
+        """, (meeting_link, meeting_time, lead_id))
         conn.commit()
 
     subject = "Meeting Confirmed - Copywriting Consultation"
@@ -1898,10 +1727,7 @@ Your Copywriting Consultant"""
 def decline_meeting(token):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=%s", (token,))
-        else:
-            cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=?", (token,))
+        cursor.execute("UPDATE leads SET status='declined' WHERE confirmation_token=%s", (token,))
         conn.commit()
     return render_template('declined.html')
 
@@ -1936,26 +1762,15 @@ def settings():
 
         with db.get_connection() as conn:
             cursor = conn.cursor()
-            if db.use_postgres:
-                cursor.execute(
-                    'UPDATE users SET phone=%s, whatsapp_number=%s, telegram_chat_id=%s WHERE id=%s',
-                    (
-                        request.form.get('phone', ''),
-                        request.form.get('whatsapp_number', ''),
-                        request.form.get('telegram_chat_id', ''),
-                        session['user_id'],
-                    ),
-                )
-            else:
-                cursor.execute(
-                    'UPDATE users SET phone=?, whatsapp_number=?, telegram_chat_id=? WHERE id=?',
-                    (
-                        request.form.get('phone', ''),
-                        request.form.get('whatsapp_number', ''),
-                        request.form.get('telegram_chat_id', ''),
-                        session['user_id'],
-                    ),
-                )
+            cursor.execute(
+                'UPDATE users SET phone=%s, whatsapp_number=%s, telegram_chat_id=%s WHERE id=%s',
+                (
+                    request.form.get('phone', ''),
+                    request.form.get('whatsapp_number', ''),
+                    request.form.get('telegram_chat_id', ''),
+                    session['user_id'],
+                ),
+            )
 
         db.update_notification_settings(
             session['user_id'],
@@ -2288,7 +2103,7 @@ def schedule_meeting(lead_id):
     else:
         meeting_link = create_google_meet_link()
         meeting_time = (datetime.now() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
-        db.mark_meeting_scheduled(lead_id, meeting_link, meeting_time.isoformat())
+        db.mark_meeting_scheduled(lead_id, meeting_link, meeting_time)
 
     db.update_lead(lead_id, status='meeting_scheduled')
 
@@ -2331,23 +2146,12 @@ Your Copywriting Consultant"""
 def track_open(message_id):
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        if db.use_postgres:
-            cursor.execute('SELECT lead_id FROM messages WHERE id=%s', (message_id,))
-        else:
-            cursor.execute('SELECT lead_id FROM messages WHERE id=?', (message_id,))
+        cursor.execute('SELECT lead_id FROM messages WHERE id=%s', (message_id,))
         result = cursor.fetchone()
         if result:
-            if db.use_postgres:
-                lead_id = result['lead_id']
-            else:
-                lead_id = result[0]
-            
-            if db.use_postgres:
-                cursor.execute('UPDATE leads SET opened=1 WHERE id=%s', (lead_id,))
-                cursor.execute('UPDATE messages SET opened_at=%s WHERE id=%s', (datetime.now().isoformat(), message_id))
-            else:
-                cursor.execute('UPDATE leads SET opened=1 WHERE id=?', (lead_id,))
-                cursor.execute('UPDATE messages SET opened_at=? WHERE id=?', (datetime.now().isoformat(), message_id))
+            lead_id = result['lead_id']
+            cursor.execute('UPDATE leads SET opened=1 WHERE id=%s', (lead_id,))
+            cursor.execute('UPDATE messages SET opened_at=%s WHERE id=%s', (datetime.now(), message_id))
 
     pixel = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
     return send_file(io.BytesIO(pixel), mimetype='image/gif', as_attachment=False, download_name='pixel.gif')
@@ -2388,7 +2192,7 @@ if __name__ == '__main__':
     print("⚡ Copywriterflo - Copywriter Acquisition System")
     print("=" * 60)
     print(f"✅ App URL: {APP_URL}")
-    print("✅ Database: PostgreSQL" if db.use_postgres else "✅ Database: SQLite")
+    print("✅ Database: PostgreSQL")
     print("✅ CSRF Protection: Enabled")
     print("✅ Rate Limiting: Enabled (incl. Nominatim 1 req/s)")
     print("✅ HTML Emails: Enabled (XSS-safe)")
@@ -2399,7 +2203,7 @@ if __name__ == '__main__':
     print("✅ Email Reply Detection: Ready (exponential back-off)")
     print("✅ Meeting Management: Ready")
     print("✅ Global OpenAI client: Single key from environment")
-    print("✅ Grey Payment Integration: One-time $280 Lifetime Access")
+    print(f"✅ Payment Integration: {'Intersend (Card Payments)' if INTERSEND_ENABLED else 'Disabled'}")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
     print("📱 Production URL: " + APP_URL)

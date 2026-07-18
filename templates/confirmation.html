@@ -4,46 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Confirmed - First Client Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'DM Sans', sans-serif;
+            background:
+              radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,106,61,0.16), transparent 60%),
+              radial-gradient(ellipse 700px 500px at 100% 10%, rgba(94,179,246,0.10), transparent 55%),
+              #07090f;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            color: #eceef4;
         }
         .card {
-            background: white;
+            background: #11141f;
+            border: 1px solid #232840;
             border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
+            padding: 44px 40px;
+            max-width: 460px;
+            width: 100%;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-        h1 { color: #333; margin-bottom: 16px; }
-        .meeting-link {
-            background: #f0f0f0;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            word-break: break-all;
-        }
-        .btn {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 8px;
-            margin-top: 20px;
+            box-shadow: 0 20px 40px -20px rgba(0,0,0,0.6);
         }
         .checkmark {
-            font-size: 64px;
-            color: #4CAF50;
-            margin-bottom: 20px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(52,211,153,0.12);
+            border: 1px solid rgba(52,211,153,0.35);
+            color: #34d399;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
         }
+        h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; margin-bottom: 14px; letter-spacing: -0.01em; }
+        p { color: #8890a6; font-size: 14.5px; line-height: 1.6; }
+        p strong { color: #eceef4; }
+        .meeting-link {
+            background: #0b0e17;
+            border: 1px solid #232840;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 22px 0;
+            word-break: break-all;
+            font-size: 13px;
+        }
+        .meeting-link a { color: #ff6a3d; text-decoration: none; }
+        .btn {
+            display: inline-block;
+            background: #ff6a3d;
+            color: #0a0a0a;
+            padding: 13px 28px;
+            text-decoration: none;
+            border-radius: 10px;
+            margin-top: 16px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .foot { margin-top: 20px; font-size: 12px; color: #565f78; }
     </style>
 </head>
 <body>
@@ -52,12 +76,12 @@
         <h1>Meeting Confirmed!</h1>
         <p>Your meeting has been scheduled for <strong>{{ meeting_time.strftime('%B %d, %Y at %I:%M %p') }}</strong></p>
         <div class="meeting-link">
-            <strong>Google Meet Link:</strong><br>
+            <strong style="display:block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #8890a6;">Google Meet Link</strong>
             <a href="{{ meeting_link }}" target="_blank">{{ meeting_link }}</a>
         </div>
         <p>Please save this link and add the meeting to your calendar.</p>
         <a href="{{ meeting_link }}" class="btn" target="_blank">Join Meeting</a>
-        <p style="margin-top: 20px; font-size: 12px; color: #999;">You can also add this to Google Calendar</p>
+        <p class="foot">You can also add this to Google Calendar</p>
     </div>
 </body>
 </html>

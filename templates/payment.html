@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if solana_wallet_pay %}
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+{% endif %}
+{% if evm_wallet_pay and walletconnect_project_id %}
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.15.0/dist/index.umd.js"></script>
+{% endif %}
+
+<div class="container" style="max-width: 560px;">
+  <div class="page-head" style="text-align: center;">
+    <h1>💳 Complete Your Payment</h1>
+    <p>Send <strong style="color: var(--text);">exactly</strong> <strong id="amountHeadline" style="color: var(--text);">{{ amount }} {{ currency }}</strong> in <strong style="color: var(--text);">{{ crypto }}</strong></p>
+  </div>
+
+  {% if evm_wallet_pay or solana_wallet_pay %}
+  <div class="card" style="text-align: center; margin-bottom: 16px;">
+    <h3 style="font-family: var(--font-display); font-size: 15px; margin-bottom: 6px;">⚡ One-click pay</h3>
+    <p class="text-muted mb-2" style="font-size: 13px;">
+      Pay straight from your wallet — the address and amount are filled in for you. You'll review and approve the transaction in your own wallet, we never have access to your funds or keys.
+    </p>
+    {% if evm_wallet_pay %}
+    <button onclick="payWithMetaMask()" id="metamaskBtn" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+      🦊 Pay with MetaMask
+    </button>
+    {% if walletconnect_project_id %}
+    <button onclick="payWithWalletConnect()" id="wcBtn" class="btn btn-secondary" style="width: 100%; margin-top: 8px;">
+      📱 Pay with mobile wallet (scan QR)
+    </button>
+    {% endif %}
+    {% endif %}
+    {% if solana_wallet_pay %}
+    <button onclick="payWithPhantom()" id="phantomBtn" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+      👻 Pay with Phantom
+    </button>
+    {% endif %}
+    <div id="walletPayStatus" style="font-size: 12.5px; color: var(--muted); margin-top: 10px; min-height: 16px;"></div>
+  </div>
+  <div style="text-align:center; font-size: 12px; color: var(--muted); margin-bottom: 16px;">— or send manually —</div>
+  {% endif %}
+
+  <div class="card" style="text-align: center;">
+    <!-- QR Code -->
+    <div style="margin: 8px 0 20px; display: flex; justify-content: center;">
+      <img src="{{ qr_code }}" alt="QR Code" style="width: 200px; height: 200px; border-radius: 14px; border: 1px solid var(--border); padding: 10px; background: #fff;">
+    </div>
+
+    <!-- Wallet Address -->
+    <div style="background: var(--bg-elev); border: 1px solid var(--border); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
+      <div style="font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;">Send to this address</div>
+      <div style="font-size: 13px; word-break: break-all; font-family: var(--font-mono); color: var(--text);">
+        {{ address }}
+      </div>
+      <button onclick="copyValue('{{ address }}', 'copyAddressBtn')" id="copyAddressBtn" class="btn btn-secondary mt-2" style="font-size: 12px; padding: 8px 14px;">
+        📋 Copy Address
+      </button>
+    </div>
+
+    <!-- Exact amount -->
+    <div style="background: var(--bg-elev); border: 1px solid var(--border); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
+      <div style="font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;">Amount — must match exactly</div>
+      <div style="font-size: 16px; font-weight: 700; font-family: var(--font-mono); color: var(--accent);">
+        {{ amount }} {{ crypto }}
+      </div>
+      <button onclick="copyValue('{{ amount }}', 'copyAmountBtn')" id="copyAmountBtn" class="btn btn-secondary mt-2" style="font-size: 12px; padding: 8px 14px;">
+        📋 Copy Amount
+      </button>
+      <div style="font-size: 11px; color: var(--muted); margin-top: 8px;">
+        This exact amount (down to the last digit) is how we automatically recognize your payment. Sending a rounded or different amount will delay detection.
+      </div>
+    </div>
+
+    <!-- Order ID -->
+    <div style="font-size: 12px; color: var(--muted); margin: 12px 0;">
+      Order ID: <span style="font-family: var(--font-mono);">{{ payment.order_id }}</span>
+    </div>
+  </div>
+
+  <!-- Live status -->
+  <div class="card mt-2" style="text-align: center;" id="statusCard">
+    <h3 style="font-family: var(--font-display); font-size: 15px; margin-bottom: 8px;" id="statusTitle">⏳ Waiting for payment</h3>
+    <p class="text-muted mb-2" style="font-size: 13px;" id="statusDetail">
+      This page checks automatically — nothing for you to submit. Once your payment is detected on-chain and confirmed, your lifetime access unlocks by itself.
+    </p>
+    <div id="confirmProgress" style="display:none; font-size: 13px; color: var(--muted); margin-top: 8px;"></div>
+  </div>
+
+  <div style="text-align: center; margin-top: 16px;">
+    <a href="{{ url_for('pricing') }}" style="color: var(--muted); font-size: 13px; text-decoration: none;">← Back to Pricing</a>
+  </div>
+</div>
+
+<script>
+// ---- Wallet-connect one-click pay (non-custodial: user signs in their own wallet) ----
+const ADDRESS = "{{ address }}";
+const AMOUNT = "{{ amount }}";
+const CRYPTO = "{{ crypto }}";
+{% if evm_wallet_pay and crypto != 'ETH' %}
+const ERC20_CONTRACT = "{{ erc20_contract }}";
+const ERC20_DECIMALS = {{ erc20_decimals }};
+{% endif %}
+{% if evm_wallet_pay %}
+const WALLETCONNECT_PROJECT_ID = "{{ walletconnect_project_id }}";
+{% endif %}
+{% if solana_wallet_pay %}
+const SOLANA_RPC_URL = "{{ solana_rpc_url }}";
+{% endif %}
+
+// Converts a decimal amount string to a base-unit BigInt without floating point,
+// e.g. toBaseUnitsBigInt("280.00073521", 18) for wei.
+function toBaseUnitsBigInt(amountStr, decimals) {
+  const [intPartRaw, fracPartRaw = ''] = amountStr.split('.');
+  const intPart = intPartRaw === '' ? '0' : intPartRaw;
+  const fracPart = (fracPartRaw + '0'.repeat(decimals)).slice(0, decimals);
+  const combined = (intPart + fracPart).replace(/^0+(?=\d)/, '');
+  return BigInt(combined);
+}
+
+function buildEvmTxParams(from) {
+  if (CRYPTO === 'ETH') {
+    const weiHex = '0x' + toBaseUnitsBigInt(AMOUNT, 18).toString(16);
+    return { from, to: ADDRESS, value: weiHex };
+  }
+  const data = buildErc20TransferData(ADDRESS, AMOUNT, ERC20_DECIMALS);
+  return { from, to: ERC20_CONTRACT, value: '0x0', data };
+}
+
+async function payWithMetaMask() {
+  const statusEl = document.getElementById('walletPayStatus');
+  const btn = document.getElementById('metamaskBtn');
+  if (!window.ethereum) {
+    statusEl.textContent = 'No EVM wallet detected — install MetaMask (or similar) or send manually below.';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    statusEl.textContent = 'Connecting to wallet...';
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const from = accounts[0];
+
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId !== '0x1') {
+      statusEl.textContent = 'Switching to Ethereum mainnet...';
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x1' }]
+      });
+    }
+
+    const txParams = buildEvmTxParams(from);
+
+    statusEl.textContent = 'Confirm the transaction in your wallet...';
+    const txHash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [txParams] });
+
+    statusEl.textContent = `Transaction submitted (${txHash.slice(0, 10)}...). This page will update automatically once it's confirmed.`;
+  } catch (err) {
+    statusEl.textContent = 'Payment cancelled or failed: ' + (err && err.message ? err.message : err);
+    btn.disabled = false;
+  }
+}
+
+let wcProvider = null;
+
+async function payWithWalletConnect() {
+  const statusEl = document.getElementById('walletPayStatus');
+  const btn = document.getElementById('wcBtn');
+  if (!WALLETCONNECT_PROJECT_ID) {
+    statusEl.textContent = 'WalletConnect is not configured on this site yet.';
+    return;
+  }
+  const EthereumProviderLib = window['@walletconnect/ethereum-provider'];
+  if (!EthereumProviderLib) {
+    statusEl.textContent = 'Could not load WalletConnect — check your connection and try again, or use MetaMask/manual payment below.';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    statusEl.textContent = 'Opening WalletConnect — scan the QR code with your mobile wallet...';
+    wcProvider = await EthereumProviderLib.EthereumProvider.init({
+      projectId: WALLETCONNECT_PROJECT_ID,
+      optionalChains: [1],
+      showQrModal: true,
+      metadata: {
+        name: 'Copywriterflo',
+        description: 'Lifetime access payment',
+        url: window.location.origin,
+        icons: [window.location.origin + '/static/favicon.png']
+      }
+    });
+    await wcProvider.connect();
+    const from = wcProvider.accounts[0];
+
+    const txParams = buildEvmTxParams(from);
+
+    statusEl.textContent = 'Confirm the transaction in your mobile wallet...';
+    const txHash = await wcProvider.request({ method: 'eth_sendTransaction', params: [txParams] });
+
+    statusEl.textContent = `Transaction submitted (${txHash.slice(0, 10)}...). This page will update automatically once it's confirmed.`;
+    await wcProvider.disconnect();
+  } catch (err) {
+    statusEl.textContent = 'Payment cancelled or failed: ' + (err && err.message ? err.message : err);
+    btn.disabled = false;
+  }
+}
+
+async function payWithPhantom() {
+  const statusEl = document.getElementById('walletPayStatus');
+  const btn = document.getElementById('phantomBtn');
+  const provider = window.solana;
+  if (!provider || !provider.isPhantom) {
+    statusEl.textContent = 'No Solana wallet detected — install Phantom (or similar) or send manually below.';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    statusEl.textContent = 'Connecting to wallet...';
+    const resp = await provider.connect();
+    const fromPubkey = resp.publicKey;
+
+    const { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = solanaWeb3;
+    const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+    const toPubkey = new PublicKey(ADDRESS);
+    const lamports = Math.round(parseFloat(AMOUNT) * LAMPORTS_PER_SOL);
+
+    const transaction = new Transaction().add(SystemProgram.transfer({ fromPubkey, toPubkey, lamports }));
+    transaction.feePayer = fromPubkey;
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+
+    statusEl.textContent = 'Confirm the transaction in your wallet...';
+    const { signature } = await provider.signAndSendTransaction(transaction);
+
+    statusEl.textContent = `Transaction submitted (${signature.slice(0, 10)}...). This page will update automatically once it's confirmed.`;
+  } catch (err) {
+    statusEl.textContent = 'Payment cancelled or failed: ' + (err && err.message ? err.message : err);
+    btn.disabled = false;
+  }
+}
+
+function copyValue(value, btnId) {
+  const btn = document.getElementById(btnId);
+  const showCopied = () => {
+    if (!btn) return;
+    const original = btn.innerHTML;
+    btn.innerHTML = '✅ Copied!';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'rgba(52,211,153,.4)';
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1800);
+  };
+
+  navigator.clipboard.writeText(value).then(showCopied).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = value;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    showCopied();
+  });
+}
+
+const statusUrl = '{{ url_for("payment_status", order_id=payment.order_id) }}';
+let polling = true;
+
+async function pollStatus() {
+  if (!polling) return;
+  try {
+    const response = await fetch(statusUrl);
+    const result = await response.json();
+    if (!result.success) return;
+
+    const titleEl = document.getElementById('statusTitle');
+    const detailEl = document.getElementById('statusDetail');
+    const progressEl = document.getElementById('confirmProgress');
+
+    if (result.status === 'completed') {
+      polling = false;
+      document.getElementById('statusCard').style.background = 'var(--green-dim)';
+      document.getElementById('statusCard').style.borderColor = 'rgba(52,211,153,.3)';
+      titleEl.textContent = '✅ Payment confirmed!';
+      detailEl.textContent = 'Your lifetime access is now active. Redirecting...';
+      progressEl.style.display = 'none';
+      setTimeout(() => { window.location.href = '{{ url_for("dashboard") }}'; }, 2000);
+      return;
+    }
+
+    if (result.confirmations > 0) {
+      titleEl.textContent = '🔎 Payment detected — confirming';
+      detailEl.textContent = 'We found a matching transaction and are waiting for enough network confirmations.';
+      progressEl.style.display = 'block';
+      progressEl.textContent = `Confirmations: ${result.confirmations} / ${result.confirmations_required}`;
+    }
+  } catch (error) {
+    // Silent — we'll just try again on the next tick
+  } finally {
+    if (polling) setTimeout(pollStatus, 8000);
+  }
+}
+
+pollStatus();
+</script>
+{% endblock %}

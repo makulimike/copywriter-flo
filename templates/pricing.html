@@ -1,203 +1,449 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+  .pay-block { text-align: left; }
+
+  /* Custom dropdown */
+  .ccy-dropdown { position: relative; }
+  .ccy-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .15s ease;
+  }
+  .ccy-trigger:hover { border-color: var(--muted-dim); }
+  .ccy-dropdown.open .ccy-trigger { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.15); }
+  .ccy-trigger-left { display: flex; align-items: center; gap: 10px; }
+  .ccy-dot { width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,.7); flex-shrink: 0; }
+  .ccy-chevron { color: var(--muted); transition: transform .15s ease; font-size: 14px; }
+  .ccy-dropdown.open .ccy-chevron { transform: rotate(180deg); }
+
+  .ccy-list {
+    list-style: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px;
+    box-shadow: 0 16px 32px -12px rgba(0,0,0,.6);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity .15s ease, transform .15s ease, visibility .15s;
+    z-index: 20;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .ccy-dropdown.open .ccy-list { opacity: 1; visibility: visible; transform: translateY(0); }
+  .ccy-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .ccy-option:hover { background: rgba(139,92,246,.12); }
+  .ccy-option .ccy-check { margin-left: auto; opacity: 0; color: #8b5cf6; }
+  .ccy-option.selected .ccy-check { opacity: 1; }
+  .ccy-option .ccy-dot { background: var(--muted-dim); box-shadow: none; }
+  .ccy-option.selected .ccy-dot { background: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,.7); }
+
+  .modal-error {
+    margin-top: 12px;
+    padding: 11px 14px;
+    background: var(--red-dim);
+    border: 1px solid rgba(251,113,133,.3);
+    color: var(--red);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    text-align: left;
+  }
+  .payment-success {
+    margin-top: 12px;
+    padding: 16px;
+    background: var(--green-dim);
+    border: 1px solid rgba(52,211,153,.3);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    text-align: left;
+    line-height: 1.6;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin .6s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .credit-card-icons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 12px 0;
+    flex-wrap: wrap;
+  }
+  .credit-card-icons span {
+    background: var(--bg-elev);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .credit-card-icons span.visa { color: #1a1f71; border-color: #1a1f71; }
+  .credit-card-icons span.mastercard { color: #eb001b; border-color: #eb001b; }
+  .credit-card-icons span.amex { color: #006fcf; border-color: #006fcf; }
+  .credit-card-icons span.discover { color: #ff6000; border-color: #ff6000; }
+
+  .currency-flag {
+    font-size: 18px;
+    margin-right: 6px;
+  }
+  .currency-symbol {
+    font-weight: 700;
+    font-size: 15px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 32px; text-align: center;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800;">Lifetime Access</h1>
-    <p style="color: var(--muted);">Pay once. Use forever. Create unlimited campaigns.</p>
+  <div class="page-head" style="text-align: center;">
+    <h1 style="font-size: 34px;">Lifetime Access</h1>
+    <p>Pay once. Use forever. Create unlimited campaigns.</p>
   </div>
 
   {% if has_access %}
-  <div class="card" style="margin-bottom: 32px; text-align: center; background: rgba(34,197,94,0.1); border-color: #22c55e;">
-    <div style="font-size: 48px; margin-bottom: 8px;">✅</div>
-    <h2 style="margin-bottom: 8px;">You already have Lifetime Access!</h2>
-    <p>You can create unlimited campaigns forever. No more payments needed.</p>
-    {% if payment_info.granted_at %}
+  <div class="card mb-3" style="text-align: center; background: var(--green-dim); border-color: rgba(52,211,153,.3);">
+    <div style="font-size: 44px; margin-bottom: 8px;">✅</div>
+    <h2 style="font-family: var(--font-display); margin-bottom: 8px; font-size: 20px;">You already have Lifetime Access!</h2>
+    <p class="text-muted">You can create unlimited campaigns forever. No more payments needed.</p>
+    {% if payment_info and payment_info.granted_at %}
     <p style="font-size: 13px; color: var(--muted); margin-top: 8px;">
       Access granted on {{ payment_info.granted_at[:10] }}
     </p>
     {% endif %}
-    <a href="{{ url_for('campaign_new') }}" class="btn btn-primary" style="margin-top: 16px;">Create Your First Campaign →</a>
+    <a href="{{ url_for('campaign_new') }}" class="btn btn-primary mt-2">Create Your First Campaign →</a>
   </div>
   {% endif %}
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; max-width: 1200px; margin: 0 auto;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 1200px; margin: 0 auto;">
     <!-- Lifetime Access Card -->
-    <div class="card" style="text-align: center; {% if not has_access %}border-color: var(--accent);{% endif %}">
+    <div class="card" style="text-align: center; {% if not has_access %}border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset;{% endif %}">
       {% if not has_access %}
-      <div style="position: relative; top: -12px; background: var(--accent); display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+      <div style="position: relative; top: -12px; background: var(--accent); color: #0a0a0a; display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .04em;">
         BEST VALUE
       </div>
       {% endif %}
-      
-      <div style="font-size: 14px; color: var(--accent); margin-bottom: 16px; margin-top: 8px;">ONE-TIME PAYMENT</div>
-      
-      <div style="font-size: 48px; font-weight: 800;">
+
+      <div style="font-size: 12.5px; color: var(--accent); margin-bottom: 14px; margin-top: 6px; font-weight: 700; letter-spacing: .06em;">ONE-TIME PAYMENT</div>
+
+      <div style="font-size: 48px; font-weight: 800; font-family: var(--font-display); letter-spacing: -0.02em;">
         ${{ "%.2f"|format(price) }}
       </div>
-      <div style="color: var(--muted); margin-bottom: 24px;">lifetime access</div>
-      
+      <div class="text-muted mb-2">lifetime access</div>
+
+      <div class="credit-card-icons">
+        <span class="visa">💳 Visa</span>
+        <span class="mastercard">💳 Mastercard</span>
+        <span class="amex">💳 Amex</span>
+        <span class="discover">💳 Discover</span>
+      </div>
+
       <ul style="text-align: left; margin: 24px 0; list-style: none;">
-        <li style="margin-bottom: 12px;">✓ <strong>Unlimited campaigns</strong> forever</li>
-        <li style="margin-bottom: 12px;">✓ AI lead scoring (1-10)</li>
-        <li style="margin-bottom: 12px;">✓ Personalized email generation</li>
-        <li style="margin-bottom: 12px;">✓ Free business search (OpenStreetMap)</li>
-        <li style="margin-bottom: 12px;">✓ Email tracking & open detection</li>
-        <li style="margin-bottom: 12px;">✓ Auto-reply detection & analysis</li>
-        <li style="margin-bottom: 12px;">✓ Meeting scheduling</li>
-        <li style="margin-bottom: 12px;">✓ Website analysis & recommendations</li>
-        <li style="margin-bottom: 12px;">✓ All future updates & features</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> <strong>Unlimited campaigns</strong>&nbsp;forever</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> AI lead scoring (1-10)</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Personalized email generation</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Free business search (OpenStreetMap)</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Email tracking &amp; open detection</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Auto-reply detection &amp; analysis</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Meeting scheduling</li>
+        <li style="margin-bottom: 12px; display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> Website analysis &amp; recommendations</li>
+        <li style="display: flex; gap: 8px;"><span style="color: var(--green);">✓</span> All future updates &amp; features</li>
       </ul>
-      
-      <div style="margin-top: 24px;">
+
+      <div class="mt-3">
         {% if has_access %}
           <a href="{{ url_for('campaign_new') }}" class="btn btn-primary" style="width: 100%;">
-            🚀 Create Campaign Now
+            Create Campaign Now
           </a>
+        {% elif intersend_enabled %}
+          <div class="pay-block">
+            <label style="text-align: left; margin-bottom: 8px; display: block; font-weight: 600;">Choose Currency</label>
+
+            <!-- Currency Dropdown - Fiat Currencies Only -->
+            <div class="ccy-dropdown" id="ccy-dropdown">
+              <button type="button" class="ccy-trigger" id="ccy-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="ccy-trigger-left">
+                  <span class="ccy-dot" id="ccy-dot"></span>
+                  <span id="ccy-trigger-label">
+                    <span class="currency-flag">🇺🇸</span>
+                    <span class="currency-symbol">$</span> USD
+                  </span>
+                </span>
+                <span class="ccy-chevron">⌄</span>
+              </button>
+              <ul class="ccy-list" id="ccy-list" role="listbox">
+                <li class="ccy-option selected" role="option" data-currency="USD" data-symbol="$" data-flag="🇺🇸">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇺🇸</span> <span class="currency-symbol">$</span> USD - US Dollar</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+                <li class="ccy-option" role="option" data-currency="EUR" data-symbol="€" data-flag="🇪🇺">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇪🇺</span> <span class="currency-symbol">€</span> EUR - Euro</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+                <li class="ccy-option" role="option" data-currency="GBP" data-symbol="£" data-flag="🇬🇧">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇬🇧</span> <span class="currency-symbol">£</span> GBP - British Pound</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+                <li class="ccy-option" role="option" data-currency="NGN" data-symbol="₦" data-flag="🇳🇬">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇳🇬</span> <span class="currency-symbol">₦</span> NGN - Nigerian Naira</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+                <li class="ccy-option" role="option" data-currency="KES" data-symbol="KSh" data-flag="🇰🇪">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇰🇪</span> <span class="currency-symbol">KSh</span> KES - Kenyan Shilling</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+                <li class="ccy-option" role="option" data-currency="ZAR" data-symbol="R" data-flag="🇿🇦">
+                  <span class="ccy-dot"></span>
+                  <span><span class="currency-flag">🇿🇦</span> <span class="currency-symbol">R</span> ZAR - South African Rand</span>
+                  <span class="ccy-check">✓</span>
+                </li>
+              </ul>
+            </div>
+
+            <button id="card-button" class="btn btn-primary mt-2" style="width: 100%; padding: 16px; font-size: 16px; background: #8b5cf6; box-shadow: 0 8px 20px -8px rgba(139,92,246,.55);">
+              💳 Pay with Card
+            </button>
+
+            <div id="payment-error" class="modal-error" style="display: none;"></div>
+            <div id="payment-success" class="payment-success" style="display: none;"></div>
+          </div>
+
+          <p class="text-muted mt-2" style="font-size: 11px;">
+            🔒 Secure payments · No monthly fees · Instant access
+          </p>
         {% else %}
-          <button id="payment-button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 18px;">
-            💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}
-          </button>
+          <div style="padding: 20px; background: var(--red-dim); border-radius: 10px;">
+            <p style="color: var(--red);">Payment system is currently disabled.</p>
+            <p style="font-size: 12px; color: var(--muted);">Please contact support.</p>
+          </div>
         {% endif %}
       </div>
-      
-      <p style="margin-top: 16px; font-size: 12px; color: var(--muted);">
-        🔒 Secure bank transfer via Grey • Instant access confirmation
+
+      <p class="text-muted mt-2" style="font-size: 12px;">
+        Secure payments processed by Intersend
       </p>
     </div>
 
     <!-- Feature Details -->
     <div class="card">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">What's included:</h3>
-      
-      <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;">🤖 AI Lead Scoring</h4>
-        <p style="color: var(--muted); font-size: 14px;">Automatically score leads 1-10 based on their likelihood to need copywriting services.</p>
+      <h3 style="font-family: var(--font-display); font-size: 19px; margin-bottom: 18px; font-weight: 700;">What's included</h3>
+
+      <div class="mb-3">
+        <h4 style="color: var(--accent); margin-bottom: 6px; font-size: 14px; font-weight: 700;">AI Lead Scoring</h4>
+        <p class="text-muted" style="font-size: 14px;">Automatically score leads 1-10 based on their likelihood to need copywriting services.</p>
       </div>
-      
-      <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;">✍️ Smart Email Generation</h4>
-        <p style="color: var(--muted); font-size: 14px;">AI writes personalized cold emails based on each lead's website analysis.</p>
+
+      <div class="mb-3">
+        <h4 style="color: var(--accent); margin-bottom: 6px; font-size: 14px; font-weight: 700;">Smart Email Generation</h4>
+        <p class="text-muted" style="font-size: 14px;">AI writes personalized cold emails based on each lead's website analysis.</p>
       </div>
-      
-      <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;">📍 Free Business Search</h4>
-        <p style="color: var(--muted); font-size: 14px;">Find unlimited leads using OpenStreetMap - completely free, no API key needed.</p>
+
+      <div class="mb-3">
+        <h4 style="color: var(--accent); margin-bottom: 6px; font-size: 14px; font-weight: 700;">Free Business Search</h4>
+        <p class="text-muted" style="font-size: 14px;">Find unlimited leads using OpenStreetMap — completely free, no API key needed.</p>
       </div>
-      
-      <div style="margin-bottom: 20px;">
-        <h4 style="color: var(--accent); margin-bottom: 8px;">📧 Email Tracking</h4>
-        <p style="color: var(--muted); font-size: 14px;">Track opens, replies, and automatically detect meeting requests.</p>
+
+      <div class="mb-3">
+        <h4 style="color: var(--accent); margin-bottom: 6px; font-size: 14px; font-weight: 700;">Email Tracking</h4>
+        <p class="text-muted" style="font-size: 14px;">Track opens, replies, and automatically detect meeting requests.</p>
       </div>
-      
+
       <div>
-        <h4 style="color: var(--accent); margin-bottom: 8px;">🔔 Real-time Alerts</h4>
-        <p style="color: var(--muted); font-size: 14px;">Get notified when leads reply, want to book calls, or ask questions.</p>
+        <h4 style="color: var(--accent); margin-bottom: 6px; font-size: 14px; font-weight: 700;">Real-time Alerts</h4>
+        <p class="text-muted" style="font-size: 14px;">Get notified when leads reply, want to book calls, or ask questions.</p>
       </div>
     </div>
   </div>
 
-  <!-- Payment Info Section (for pending payments) -->
+  <!-- Pending Payment Info -->
   {% if payment_info and payment_info.status and payment_info.status == 'pending' %}
-  <div class="card" style="margin-top: 24px; text-align: center; background: rgba(249,115,22,0.1); border-color: var(--accent);">
-    <h3 style="margin-bottom: 8px;">⏳ Payment Pending</h3>
+  <div class="card mt-3" style="text-align: center; background: var(--accent-dim); border-color: rgba(255,106,61,.3);">
+    <h3 style="font-family: var(--font-display); margin-bottom: 8px; font-size: 16px;">⏳ Payment Pending</h3>
     <p>Your payment of ${{ payment_info.amount }} {{ payment_info.currency }} is being processed.</p>
-    <p class="text-muted" style="font-size: 13px;">Reference: <strong>{{ payment_info.reference }}</strong></p>
-    <a href="{{ url_for('payment_instructions') }}" class="btn btn-primary" style="margin-top: 12px;">View Payment Instructions</a>
+    <p class="text-muted" style="font-size: 13px;">Order: <strong style="color: var(--text);">{{ payment_info.order_id }}</strong></p>
+    <p class="text-muted" style="font-size: 13px;">Status: <strong style="color: var(--text);">{{ payment_info.status }}</strong></p>
+    <button onclick="window.location.href='{{ url_for('pricing') }}'" class="btn btn-primary mt-2">
+      Refresh Status
+    </button>
   </div>
   {% endif %}
 
   <!-- FAQ Section -->
-  <div class="card" style="margin-top: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px;">Frequently Asked Questions</h3>
-    
-    <div style="margin-bottom: 16px;">
-      <strong>💵 Is this really a one-time payment?</strong>
-      <p class="text-muted" style="margin-top: 4px;">Yes! Pay once, get lifetime access. No subscriptions, no hidden fees, no recurring charges.</p>
+  <div class="card mt-3">
+    <h3 style="font-family: var(--font-display); font-size: 19px; margin-bottom: 18px; font-weight: 700;">Frequently Asked Questions</h3>
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">Is this really a one-time payment?</strong>
+      <p class="text-muted mt-1">Yes! Pay once, get lifetime access. No subscriptions, no hidden fees, no recurring charges.</p>
     </div>
-    
-    <div style="margin-bottom: 16px;">
-      <strong>🚀 Can I create unlimited campaigns?</strong>
-      <p class="text-muted" style="margin-top: 4px;">Absolutely! After purchase, you can create as many campaigns as you want, forever.</p>
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">What payment methods do you accept?</strong>
+      <p class="text-muted mt-1">We accept Visa, Mastercard, American Express, and Discover cards via Intersend's secure payment gateway.</p>
     </div>
-    
-    <div style="margin-bottom: 16px;">
-      <strong>🔑 Do I need my own API keys?</strong>
-      <p class="text-muted" style="margin-top: 4px;">OpenAI API key is pre-configured. Everything else works out of the box.</p>
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">What currencies do you accept?</strong>
+      <p class="text-muted mt-1">We accept USD, EUR, GBP, NGN, KES, and ZAR. More currencies coming soon!</p>
     </div>
-    
-    <div style="margin-bottom: 16px;">
-      <strong>💳 What payment methods do you accept?</strong>
-      <p class="text-muted" style="margin-top: 4px;">We accept bank transfers via Grey. You can pay from any bank account worldwide.</p>
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">Can I create unlimited campaigns?</strong>
+      <p class="text-muted mt-1">Absolutely! After purchase, you can create as many campaigns as you want, forever.</p>
     </div>
-    
-    <div style="margin-bottom: 16px;">
-      <strong>⏱️ How long until I get access?</strong>
-      <p class="text-muted" style="margin-top: 4px;">Once your bank transfer is confirmed (usually 1-2 business days), access is granted automatically. You'll get an email confirmation.</p>
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">Do I need my own API keys?</strong>
+      <p class="text-muted mt-1">OpenAI API key is pre-configured. Everything else works out of the box.</p>
     </div>
-    
+
+    <div class="mb-2">
+      <strong style="font-size: 14px;">How long until I get access?</strong>
+      <p class="text-muted mt-1">Once your card payment is confirmed, access is granted instantly.</p>
+    </div>
+
     <div>
-      <strong>❓ What if I have issues?</strong>
-      <p class="text-muted" style="margin-top: 4px;">We offer support via email. Just reach out and we'll help you out.</p>
+      <strong style="font-size: 14px;">What if I have issues?</strong>
+      <p class="text-muted mt-1">We offer support via email. Just reach out and we'll help you out.</p>
     </div>
   </div>
 </div>
 
-{% if not has_access %}
+{% if not has_access and intersend_enabled %}
 <script>
-const paymentButton = document.getElementById('payment-button');
+// ---- Currency dropdown ----
+let selectedCurrency = 'USD';
+let selectedSymbol = '$';
 
-if (paymentButton) {
-  paymentButton.addEventListener('click', async () => {
-    paymentButton.disabled = true;
-    paymentButton.innerHTML = '<div class="spinner"></div> Creating payment...';
-    
-    try {
-      const response = await fetch('{{ url_for("create_grey_payment") }}', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken()
-        }
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        window.location.href = '{{ url_for("payment_instructions") }}';
-      } else {
-        alert('Error creating payment: ' + (result.error || 'Unknown error'));
-        paymentButton.disabled = false;
-        paymentButton.innerHTML = '💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}';
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('An error occurred. Please try again.');
-      paymentButton.disabled = false;
-      paymentButton.innerHTML = '💳 Pay with Bank Transfer - ${{ "%.2f"|format(price) }}';
+const dropdown = document.getElementById('ccy-dropdown');
+const trigger = document.getElementById('ccy-trigger');
+const list = document.getElementById('ccy-list');
+const triggerLabel = document.getElementById('ccy-trigger-label');
+
+trigger?.addEventListener('click', () => {
+    const isOpen = dropdown.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+});
+
+document.querySelectorAll('.ccy-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+        selectedCurrency = opt.getAttribute('data-currency');
+        selectedSymbol = opt.getAttribute('data-symbol');
+        const flag = opt.getAttribute('data-flag');
+        
+        triggerLabel.innerHTML = `<span class="currency-flag">${flag}</span> <span class="currency-symbol">${selectedSymbol}</span> ${selectedCurrency}`;
+        
+        document.querySelectorAll('.ccy-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        dropdown.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+    });
+});
+
+document.addEventListener('click', (e) => {
+    if (dropdown && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
+        trigger?.setAttribute('aria-expanded', 'false');
     }
-  });
-}
+});
 
-// Add spinner styles if not present
-const style = document.createElement('style');
-style.textContent = `
-  .spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 0.6s linear infinite;
-    margin-right: 8px;
-    vertical-align: middle;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
+// ---- Create Intersend payment ----
+document.getElementById('card-button')?.addEventListener('click', async () => {
+    const btn = document.getElementById('card-button');
+    const errorBox = document.getElementById('payment-error');
+    const successBox = document.getElementById('payment-success');
+
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Redirecting to payment...';
+
+    try {
+        const response = await fetch('{{ url_for("create_intersend_payment") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ 
+                currency: selectedCurrency 
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            if (result.checkout_url) {
+                window.location.href = result.checkout_url;
+            } else {
+                successBox.style.display = 'block';
+                successBox.innerHTML = `✅ Payment created! Order ID: ${result.order_id}. You'll receive payment instructions via email.`;
+                btn.disabled = false;
+                btn.innerHTML = '💳 Pay with Card';
+            }
+        } else {
+            errorBox.style.display = 'block';
+            errorBox.textContent = result.error || 'Something went wrong creating your payment. Please try again.';
+            btn.disabled = false;
+            btn.innerHTML = '💳 Pay with Card';
+        }
+    } catch (error) {
+        console.error('Payment error:', error);
+        errorBox.style.display = 'block';
+        errorBox.textContent = 'A network error occurred. Please check your connection and try again.';
+        btn.disabled = false;
+        btn.innerHTML = '💳 Pay with Card';
+    }
+});
+
+function getCSRFToken() {
+    const token = document.querySelector('input[name="csrf_token"]');
+    return token ? token.value : '';
+}
 </script>
 {% endif %}
 {% endblock %}

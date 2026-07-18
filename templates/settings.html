@@ -1,32 +1,32 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Settings</h1>
-    <p style="color: var(--muted);">Configure your email, calendar, and notification preferences</p>
+<div class="container" style="max-width: 760px;">
+  <div class="page-head">
+    <h1>Settings</h1>
+    <p>Configure your email, calendar, and notification preferences</p>
   </div>
 
   <form method="POST" action="{{ url_for('settings') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    
+
     <!-- Info about global OpenAI key -->
-    <div class="card" style="margin-bottom: 24px; background: rgba(59,130,246,0.1); border-color: #3b82f6;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">🤖 AI Features</h3>
-      <p style="color: var(--text); font-size: 14px;">AI-powered lead scoring, website analysis, and personalized email generation are automatically available to all users.</p>
-      <p class="text-muted" style="font-size: 12px; margin-top: 8px;">OpenAI API key is configured globally by the system administrator.</p>
+    <div class="card mb-3" style="background: var(--blue-dim); border-color: rgba(94,179,246,.3);">
+      <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 10px;">🤖 AI Features</h3>
+      <p style="font-size: 14px;">AI-powered lead scoring, website analysis, and personalized email generation are automatically available to all users.</p>
+      <p class="text-muted mt-1" style="font-size: 12px;">OpenAI API key is configured globally by the system administrator.</p>
     </div>
 
     <!-- Business Search Info (FREE) -->
-    <div class="card" style="margin-bottom: 24px; background: rgba(34,197,94,0.1); border-color: #22c55e;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;">📍 FREE Business Search</h3>
-      <p style="color: var(--text); font-size: 14px;">Powered by OpenStreetMap - No API key required. Search for businesses by keyword and location at no cost.</p>
-      <p class="text-muted" style="font-size: 12px; margin-top: 8px;">Use the "Find Businesses" button in any campaign to discover leads near you.</p>
+    <div class="card mb-3" style="background: var(--green-dim); border-color: rgba(52,211,153,.3);">
+      <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 10px;">📍 FREE Business Search</h3>
+      <p style="font-size: 14px;">Powered by OpenStreetMap — no API key required. Search for businesses by keyword and location at no cost.</p>
+      <p class="text-muted mt-1" style="font-size: 12px;">Use the "Find Businesses" button in any campaign to discover leads near you.</p>
     </div>
 
     <!-- Email Settings -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📧 Email Configuration (SMTP)</h3>
+    <div class="card mb-3">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">📧 Email Configuration (SMTP)</h3>
       <div class="form-group">
         <label>SMTP Host</label>
         <input type="text" name="smtp_host" value="{{ api_settings.smtp_host or 'smtp.gmail.com' }}">
@@ -39,69 +39,69 @@
         <label>Email Address</label>
         <input type="email" name="smtp_user" value="{{ api_settings.smtp_user or '' }}" placeholder="your-email@gmail.com">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom: 0;">
         <label>App Password</label>
         <input type="password" name="smtp_password" value="{{ api_settings.smtp_password or '' }}" placeholder="Your Gmail App Password">
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">For Gmail, use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" style="color: var(--accent);">App Password</a></div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">For Gmail, use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">App Password</a></div>
       </div>
     </div>
 
     <!-- Calendly Integration -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📅 Calendly Integration</h3>
-      <div class="form-group">
+    <div class="card mb-3">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">📅 Calendly Integration</h3>
+      <div class="form-group" style="margin-bottom: 0;">
         <label>Your Calendly Booking Link</label>
         <input type="url" name="meeting_link" value="{{ api_settings.meeting_link or '' }}" placeholder="https://calendly.com/yourusername/discovery-call">
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Get your free Calendly link at <a href="https://calendly.com" target="_blank" style="color: var(--accent);">Calendly.com</a> (no account needed for your leads)</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Get your free Calendly link at <a href="https://calendly.com" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">Calendly.com</a> (no account needed for your leads)</div>
       </div>
     </div>
 
     <!-- Auto-Send & Google Meet Settings -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">⚙️ Auto-Send Settings</h3>
-      <div class="checkbox-row" style="margin-bottom: 16px;">
+    <div class="card mb-3">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">⚙️ Auto-Send Settings</h3>
+      <div class="checkbox-row mb-2">
         <input type="checkbox" name="auto_send_enabled" id="auto_send_enabled" {% if api_settings.auto_send_enabled %}checked{% endif %}>
-        <label for="auto_send_enabled" style="margin: 0;">Enable Auto-Send Emails</label>
+        <label for="auto_send_enabled" style="margin: 0; text-transform: none; font-weight: 500; color: var(--text); font-size: 14px;">Enable Auto-Send Emails</label>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom: 0;">
         <label>Auto-Send Score Threshold (1-10)</label>
         <input type="number" name="auto_send_score" value="{{ api_settings.auto_send_score or 7 }}" min="1" max="10">
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Leads with score ≥ this will get auto-emails</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Leads with score ≥ this will get auto-emails</div>
       </div>
     </div>
 
     <!-- Notification Channels -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">🔔 Notification Channels</h3>
-      <div class="checkbox-row" style="margin-bottom: 12px;">
+    <div class="card mb-3">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">🔔 Notification Channels</h3>
+      <div class="checkbox-row mb-2">
         <input type="checkbox" name="email_enabled" id="email_enabled" {% if notification_settings.email_enabled %}checked{% endif %}>
-        <label for="email_enabled" style="margin: 0;">📧 Email Notifications</label>
+        <label for="email_enabled" style="margin: 0; text-transform: none; font-weight: 500; color: var(--text); font-size: 14px;">📧 Email Notifications</label>
       </div>
-      <div class="checkbox-row" style="margin-bottom: 12px;">
+      <div class="checkbox-row mb-2">
         <input type="checkbox" name="whatsapp_enabled" id="whatsapp_enabled" {% if notification_settings.whatsapp_enabled %}checked{% endif %}>
-        <label for="whatsapp_enabled" style="margin: 0;">💬 WhatsApp Notifications</label>
+        <label for="whatsapp_enabled" style="margin: 0; text-transform: none; font-weight: 500; color: var(--text); font-size: 14px;">💬 WhatsApp Notifications</label>
       </div>
-      <div class="checkbox-row" style="margin-bottom: 12px;">
+      <div class="checkbox-row">
         <input type="checkbox" name="telegram_enabled" id="telegram_enabled" {% if notification_settings.telegram_enabled %}checked{% endif %}>
-        <label for="telegram_enabled" style="margin: 0;">🤖 Telegram Notifications</label>
+        <label for="telegram_enabled" style="margin: 0; text-transform: none; font-weight: 500; color: var(--text); font-size: 14px;">🤖 Telegram Notifications</label>
       </div>
     </div>
 
     <!-- Contact Information -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📞 Your Contact Info</h3>
+    <div class="card mb-3">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">📞 Your Contact Info</h3>
       <div class="form-group">
         <label>WhatsApp Number</label>
         <input type="tel" name="whatsapp_number" value="{{ user.whatsapp_number or '' }}" placeholder="+1234567890">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom: 0;">
         <label>Telegram Chat ID</label>
         <input type="text" name="telegram_chat_id" value="{{ user.telegram_chat_id or '' }}" placeholder="Your Telegram chat ID">
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Send @userinfobot on Telegram to get your chat ID</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Send @userinfobot on Telegram to get your chat ID</div>
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px;">💾 Save All Settings</button>
+    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 15px;">💾 Save All Settings</button>
   </form>
 </div>
 {% endblock %}

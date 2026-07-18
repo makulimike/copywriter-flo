@@ -2,34 +2,34 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 24px;">
-    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent);"> Back to Campaign</a>
+  <div style="margin-bottom: 20px;">
+    <a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 600;">← Back to Campaign</a>
   </div>
 
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Find Businesses on Google</h1>
-    <p style="color: var(--muted);">Search for businesses based on your campaign's industry and location</p>
+  <div class="page-head">
+    <h1>Find Businesses on Google</h1>
+    <p>Search for businesses based on your campaign's industry and location</p>
   </div>
 
   <!-- Search Form -->
-  <div class="card" style="margin-bottom: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Search Parameters</h3>
-    
+  <div class="card mb-3">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">Search Parameters</h3>
+
     <form method="POST" action="{{ url_for('google_search', campaign_id=campaign.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      
+
       <div class="form-group">
         <label>Search Keyword / Industry</label>
         <input type="text" name="keyword" value="{{ campaign.industry }}" placeholder="e.g., coffee shop, marketing agency, e-commerce store" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Based on your campaign industry: <strong>{{ campaign.industry }}</strong></div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Based on your campaign industry: <strong style="color: var(--text);">{{ campaign.industry }}</strong></div>
       </div>
-      
+
       <div class="form-group">
         <label>Location</label>
         <input type="text" name="location" placeholder="e.g., Austin, TX or 90210" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">City, state, or zip code</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">City, state, or zip code</div>
       </div>
-      
+
       <div class="form-group">
         <label>Max Results</label>
         <select name="max_results">
@@ -39,20 +39,20 @@
           <option value="50">50 businesses</option>
         </select>
       </div>
-      
-      <button type="submit" class="btn btn-primary" style="background: #3b82f6;"> Search Google Places</button>
+
+      <button type="submit" class="btn btn-primary" style="background: var(--blue); color: #061018; box-shadow: 0 8px 20px -8px rgba(94,179,246,.55);">Search Google Places</button>
     </form>
   </div>
 
   <!-- Search Results -->
   {% if results %}
-  <div class="card">
-    <div class="flex justify-between items-center" style="margin-bottom: 16px;">
-      <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
-      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;"> Import Selected Leads</button>
+  <div class="card" style="padding: 22px;">
+    <div class="flex justify-between items-center mb-2" style="flex-wrap: wrap; gap: 12px;">
+      <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700;">📋 Search Results ({{ results|length }} businesses found)</h3>
+      <button onclick="importSelectedLeads()" class="btn btn-success">Import Selected Leads</button>
     </div>
-    
-    <div style="overflow-x: auto;">
+
+    <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 12px;">
       <table style="width: 100%;">
         <thead>
           <tr>
@@ -77,15 +77,15 @@
               {% elif biz.rating >= 4.0 %}
                 <span class="badge badge-warm">⭐ {{ biz.rating }}</span>
               {% elif biz.rating > 0 %}
-                <span class="badge">⭐ {{ biz.rating }}</span>
+                <span class="badge badge-cold">⭐ {{ biz.rating }}</span>
               {% endif %}
             </td>
-            <td style="font-size: 13px;">{{ biz.address or '-' }}</td>
+            <td style="font-size: 13px; color: var(--muted);">{{ biz.address or '-' }}</td>
             <td>{{ biz.phone or '-' }}</td>
             <td>{{ biz.rating }}/5 ({{ biz.total_ratings }} reviews)</td>
             <td>
               {% if biz.website %}
-                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent);">Visit</a>
+                <a href="{{ biz.website }}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">Visit</a>
               {% else %}
                 -
               {% endif %}
@@ -95,18 +95,18 @@
         </tbody>
       </table>
     </div>
-    
+
     <div style="margin-top: 16px; text-align: right;">
-      <button onclick="importSelectedLeads()" class="btn btn-primary" style="background: #22c55e;"> Import Selected Leads</button>
+      <button onclick="importSelectedLeads()" class="btn btn-success">Import Selected Leads</button>
     </div>
   </div>
   {% endif %}
 
   <!-- Recent Searches -->
   {% if searches %}
-  <div class="card" style="margin-top: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;"> Recent Searches</h3>
-    <div style="overflow-x: auto;">
+  <div class="card mt-3" style="padding: 0; overflow: hidden;">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; padding: 22px 22px 0;">Recent Searches</h3>
+    <div style="overflow-x: auto; margin-top: 16px;">
       <table style="width: 100%;">
         <thead>
           <tr>
@@ -123,14 +123,14 @@
             <td>{{ search.keyword }}</td>
             <td>{{ search.location or 'Any' }}</td>
             <td>{{ search.total_results }}</td>
-            <td>{{ search.created_at[:16] }}</td>
+            <td class="text-muted">{{ search.created_at[:16] }}</td>
             <td>
               <form method="POST" action="{{ url_for('google_search', campaign_id=campaign.id) }}" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="keyword" value="{{ search.keyword }}">
                 <input type="hidden" name="location" value="{{ search.location }}">
                 <input type="hidden" name="max_results" value="20">
-                <button type="submit" class="btn btn-secondary btn-sm"> Search Again</button>
+                <button type="submit" class="btn btn-secondary">Search Again</button>
               </form>
             </td>
           </tr>

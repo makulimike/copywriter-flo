@@ -1,22 +1,124 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 140px 24px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-inner { max-width: 760px; text-align: center; position: relative; z-index: 2; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(255,106,61,.35);
+    color: var(--accent);
+    padding: 7px 16px 7px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    margin-bottom: 28px;
+    font-family: var(--font-mono);
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(38px, 5.2vw, 74px);
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    margin-bottom: 22px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(100deg, var(--accent), var(--accent-2) 70%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.lede {
+    font-size: clamp(15px, 1.6vw, 18px);
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+  }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 56px; }
+  .hero-actions .btn { padding: 14px 26px; font-size: 15px; }
+
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-width: 140px;
+  }
+  .flow-step .n { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-dim); }
+  .flow-arrow { color: var(--muted-dim); font-size: 16px; padding: 0 10px; }
+
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 700px 500px at 50% 30%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 700px 500px at 50% 30%, #000 20%, transparent 75%);
+    z-index: 1;
+  }
+
+  @media (max-width: 640px) {
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); padding: 4px 0; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 24px;">
-  <div>
-    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.3); color: var(--accent); padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; margin-bottom: 32px;">
-      AI-Powered Client Acquisition
+<div class="hero">
+  <div class="bg-grid"></div>
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="dot"></span>AI-Powered Client Acquisition</div>
+    <h1>Stop Chasing Clients.<br><em>Start Booking Meetings.</em></h1>
+    <p class="lede">The First Client Engine scores your leads, writes personalized outreach, and alerts you the moment a hot prospect is ready.</p>
+    <div class="hero-actions">
+      <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
+      <a href="{{ url_for('login') }}" class="btn btn-secondary">Sign in</a>
     </div>
-    <h1 style="font-family: 'Syne', sans-serif; font-size: clamp(40px, 4vw, 80px); font-weight: 800; line-height: 1.05; margin-bottom: 24px;">
-      Stop Chasing Clients.<br><em style="color: var(--accent); font-style: normal;">Start Booking Meetings.</em>
-    </h1>
-    <p style="font-size: clamp(16px, 2vw, 20px); color: var(--muted); max-width: 540px; margin: 0 auto 40px; line-height: 1.7;">
-      The First Client Engine scores your leads, writes personalized outreach, and alerts you the moment a hot prospect is ready.
-    </p>
-    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-      <a href="{{ url_for('register') }}" class="btn btn-primary" style="padding: 14px 28px; font-size: 16px;">Get Started</a>
-      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="padding: 14px 28px; font-size: 16px;">Sign in</a>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">01</span>Find leads</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="n">02</span>AI scores &amp; writes</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="n">03</span>Meeting booked</div>
     </div>
-    
   </div>
 </div>
 {% endblock %}

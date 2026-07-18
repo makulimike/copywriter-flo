@@ -2,9 +2,9 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Dashboard</h1>
-    <p style="color: var(--muted);">Welcome back! Here's your client acquisition overview.</p>
+  <div class="page-head">
+    <h1>Dashboard</h1>
+    <p>Welcome back! Here's your client acquisition overview.</p>
   </div>
 
   <div class="stats-grid">
@@ -16,23 +16,23 @@
       <div class="label">Hot Leads</div>
       <div class="value" style="color: var(--accent);">{{ total_hot|default(0) }}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card green">
       <div class="label">Messages Sent</div>
-      <div class="value" style="color: #22c55e;">{{ total_sent|default(0) }}</div>
+      <div class="value">{{ total_sent|default(0) }}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card blue">
       <div class="label">Websites Analyzed</div>
-      <div class="value" style="color: #3b82f6;">{{ total_websites_analyzed|default(0) }}</div>
+      <div class="value">{{ total_websites_analyzed|default(0) }}</div>
     </div>
   </div>
 
   <div class="flex justify-between items-center" style="margin-bottom: 20px;">
-    <h2 style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700;">Your Campaigns</h2>
+    <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -0.01em;">Your Campaigns</h2>
     <a href="{{ url_for('campaign_new') }}" class="btn btn-primary">+ New Campaign</a>
   </div>
 
   {% if campaigns %}
-    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+    <div class="card" style="padding: 0; overflow: hidden;">
       <table style="width: 100%;">
         <thead>
           <tr>
@@ -51,21 +51,21 @@
           {% set campaign_stats = stats[loop.index0] if stats else {'total_leads': 0, 'hot_leads': 0, 'messages_sent': 0, 'replies': 0, 'meetings': 0, 'websites_analyzed': 0} %}
           <tr>
             <td><strong>{{ campaign.name }}</strong></td>
-            <td>{{ campaign.industry or 'Any' }}</td>
+            <td class="text-muted">{{ campaign.industry or 'Any' }}</td>
             <td>{{ campaign_stats.total_leads }}</td>
             <td><span class="badge badge-hot">{{ campaign_stats.hot_leads }}</span></td>
             <td>{{ campaign_stats.messages_sent }}</td>
             <td><span class="badge {% if campaign_stats.websites_analyzed > 0 %}badge-success{% else %}badge-cold{% endif %}">{{ campaign_stats.websites_analyzed }}</span></td>
             <td><span class="badge {% if campaign_stats.meetings > 0 %}badge-success{% else %}badge-cold{% endif %}">{{ campaign_stats.meetings }}</span></td>
-            <td><a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent);">View </a></td>
+            <td><a href="{{ url_for('campaign_detail', campaign_id=campaign.id) }}" style="color: var(--accent); font-weight: 600; text-decoration: none; font-size: 13px;">View →</a></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <div style="text-align: center; padding: 60px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;">
-      <p style="color: var(--muted); margin-bottom: 16px;">You haven't created any campaigns yet.</p>
+    <div class="card empty-state">
+      <p style="margin-bottom: 20px;">You haven't created any campaigns yet.</p>
       <a href="{{ url_for('campaign_new') }}" class="btn btn-primary">Create Your First Campaign</a>
     </div>
   {% endif %}

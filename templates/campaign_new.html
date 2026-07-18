@@ -2,34 +2,34 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Create New Campaign</h1>
-    <p style="color: var(--muted);">Define your target industry and outreach script.</p>
+  <div class="page-head">
+    <h1>Create New Campaign</h1>
+    <p>Define your target industry and outreach script.</p>
   </div>
 
-  <div style="max-width: 600px;">
+  <div class="card" style="max-width: 600px;">
     <form method="POST">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label>Campaign Name</label>
         <input type="text" name="name" placeholder="e.g., E-commerce Outreach" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Give your campaign a memorable name</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">Give your campaign a memorable name</div>
       </div>
 
       <div class="form-group">
         <label>Target Industry</label>
         <input type="text" name="industry" placeholder="e.g., E-commerce, SaaS, Local Business" required>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">What industry are you targeting?</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">What industry are you targeting?</div>
       </div>
 
       <div class="form-group">
         <label>Outreach Script / Vibe</label>
         <textarea name="script" placeholder="Describe your style... e.g., Friendly, professional, value-first, casual..." required></textarea>
-        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">This guides the AI on your outreach tone</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 6px;">This guides the AI on your outreach tone</div>
       </div>
 
       <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary">Create Campaign </button>
+        <button type="submit" class="btn btn-primary">Create Campaign</button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
       </div>
     </form>

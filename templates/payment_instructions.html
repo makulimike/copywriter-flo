@@ -1,72 +1,72 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-  <div class="card" style="text-align: center; margin-bottom: 24px;">
-    <div style="font-size: 48px; margin-bottom: 8px;">🏦</div>
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">Complete Your Payment</h1>
-    <p style="color: var(--muted);">Follow the instructions below to complete your lifetime access purchase.</p>
+<div class="container" style="max-width: 640px;">
+  <div class="card mb-3" style="text-align: center;">
+    <div style="font-size: 44px; margin-bottom: 8px;">🏦</div>
+    <h1 style="font-family: var(--font-display); font-size: 26px; font-weight: 800;">Complete Your Payment</h1>
+    <p class="text-muted">Follow the instructions below to complete your lifetime access purchase.</p>
   </div>
 
-  <div class="card" style="margin-bottom: 24px; background: rgba(249,115,22,0.1); border-color: var(--accent);">
-    <h3 style="margin-bottom: 8px;">⚠️ Important</h3>
+  <div class="card mb-3" style="background: var(--accent-dim); border-color: rgba(255,106,61,.3);">
+    <h3 style="margin-bottom: 8px; font-size: 15px;">⚠️ Important</h3>
     <p style="font-size: 14px;">You must include your <strong>reference code</strong> in the bank transfer description. Without it, we cannot identify your payment.</p>
-    <p style="font-size: 13px; color: var(--muted); margin-top: 8px;">Your reference code is unique to this transaction.</p>
+    <p class="text-muted mt-1" style="font-size: 12.5px;">Your reference code is unique to this transaction.</p>
   </div>
 
   <!-- Payment Details -->
-  <div class="card" style="margin-bottom: 24px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Payment Details</h3>
-    
-    <div style="display: grid; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-        <span class="text-muted">Amount to Pay:</span>
-        <span class="text-accent" style="font-size: 24px; font-weight: 700;">{{ currency }} {{ amount }}</span>
+  <div class="card mb-3">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">Payment Details</h3>
+
+    <div style="display: grid; gap: 4px;">
+      <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">Amount to Pay</span>
+        <span class="text-accent" style="font-size: 22px; font-weight: 700;">{{ currency }} {{ amount }}</span>
       </div>
-      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-        <span class="text-muted">Your Reference Code:</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+        <span class="text-muted">Your Reference Code</span>
         <div>
-          <code style="background: #111827; padding: 4px 8px; border-radius: 4px;">{{ reference }}</code>
-          <button onclick="copyToClipboard('{{ reference }}')" class="btn btn-secondary" style="margin-left: 8px; padding: 4px 12px;">Copy</button>
+          <code style="background: var(--bg-elev); border: 1px solid var(--border); padding: 5px 10px; border-radius: 6px;">{{ reference }}</code>
+          <button onclick="copyToClipboard('{{ reference }}')" class="btn btn-secondary" style="margin-left: 8px; padding: 5px 12px; font-size: 12px;">Copy</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Bank Details -->
-  <div class="card" style="margin-bottom: 24px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Bank Transfer Details</h3>
-    
-    <div style="display: grid; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">Bank Name:</span>
+  <div class="card mb-3">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">Bank Transfer Details</h3>
+
+    <div style="display: grid; gap: 4px;">
+      <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">Bank Name</span>
         <span>{{ bank_details.bank_name }}</span>
       </div>
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">Account Name:</span>
+      <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">Account Name</span>
         <span>{{ bank_details.account_name }}</span>
       </div>
       {% if bank_details.account_number %}
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">Account Number:</span>
+      <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">Account Number</span>
         <code>{{ bank_details.account_number }}</code>
       </div>
       {% endif %}
       {% if bank_details.routing_number %}
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">Routing Number:</span>
+      <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">Routing Number</span>
         <code>{{ bank_details.routing_number }}</code>
       </div>
       {% endif %}
       {% if bank_details.iban %}
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">IBAN:</span>
+      <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-soft);">
+        <span class="text-muted">IBAN</span>
         <code>{{ bank_details.iban }}</code>
       </div>
       {% endif %}
       {% if bank_details.swift_bic %}
-      <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-        <span class="text-muted">SWIFT/BIC:</span>
+      <div style="display: flex; justify-content: space-between; padding: 9px 0;">
+        <span class="text-muted">SWIFT/BIC</span>
         <code>{{ bank_details.swift_bic }}</code>
       </div>
       {% endif %}
@@ -74,19 +74,19 @@
   </div>
 
   <!-- Instructions -->
-  <div class="card" style="margin-bottom: 24px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">📝 Instructions</h3>
-    <ol style="list-style: decimal; padding-left: 20px; color: var(--muted); line-height: 2;">
-      <li>Send exactly <strong>{{ currency }} {{ amount }}</strong> to the bank details above</li>
-      <li>Include your reference code <strong>{{ reference }}</strong> in the transfer description/reference field</li>
-      <li>Click <strong>"I've Sent the Payment"</strong> button below</li>
+  <div class="card mb-3">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 16px;">📝 Instructions</h3>
+    <ol style="list-style: decimal; padding-left: 20px; color: var(--muted); line-height: 2; font-size: 14px;">
+      <li>Send exactly <strong style="color: var(--text);">{{ currency }} {{ amount }}</strong> to the bank details above</li>
+      <li>Include your reference code <strong style="color: var(--text);">{{ reference }}</strong> in the transfer description/reference field</li>
+      <li>Click <strong style="color: var(--text);">"I've Sent the Payment"</strong> button below</li>
       <li>Your account will be activated within 24 hours after we confirm the transfer</li>
     </ol>
   </div>
 
   <!-- Action Buttons -->
-  <div class="flex gap-2" style="margin-bottom: 24px;">
-    <button onclick="markPaymentSent()" class="btn btn-primary" style="flex: 1; background: #22c55e;">
+  <div class="flex gap-2 mb-3">
+    <button onclick="markPaymentSent()" class="btn btn-success" style="flex: 1;">
       ✅ I've Sent the Payment
     </button>
     <a href="{{ url_for('pricing') }}" class="btn btn-secondary" style="flex: 1; text-align: center;">
@@ -121,7 +121,7 @@ async function checkPaymentStatus() {
       const msg = document.getElementById('statusMessage');
       msg.style.display = 'block';
       msg.innerHTML = `
-        <div style="color: #22c55e; margin-bottom: 8px;">✅ Payment Confirmed!</div>
+        <div style="color: var(--green); margin-bottom: 8px; font-weight: 600;">✅ Payment Confirmed!</div>
         <p>Your lifetime access has been activated. Redirecting to dashboard...</p>
       `;
       setTimeout(() => {

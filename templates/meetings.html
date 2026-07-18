@@ -2,69 +2,69 @@
 
 {% block content %}
 <div class="container">
-  <div style="margin-bottom: 32px;">
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;"> Scheduled Meetings</h1>
-    <p style="color: var(--muted);">Manage all your upcoming client meetings</p>
+  <div class="page-head">
+    <h1>📅 Scheduled Meetings</h1>
+    <p>Manage all your upcoming client meetings</p>
   </div>
 
   {% if meetings and meetings|length > 0 %}
-    <div style="display: grid; gap: 16px;">
+    <div style="display: grid; gap: 14px;">
       {% for meeting in meetings %}
-      <div class="card" style="padding: 20px;">
-        <div class="flex justify-between items-center">
+      <div class="card">
+        <div class="flex justify-between items-center" style="flex-wrap: wrap; gap: 10px;">
           <div>
-            <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">{{ meeting.name }}</h3>
-            <p style="color: var(--muted); font-size: 13px;">{{ meeting.company }} | {{ meeting.campaign_name }}</p>
+            <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700;">{{ meeting.name }}</h3>
+            <p class="text-muted" style="font-size: 13px; margin-top: 2px;">{{ meeting.company }} · {{ meeting.campaign_name }}</p>
           </div>
           <div>
             {% if meeting.status == 'meeting_scheduled' %}
-              <span class="badge badge-success"> Confirmed</span>
+              <span class="badge badge-success">✅ Confirmed</span>
             {% elif meeting.status == 'calendly_sent' %}
-              <span class="badge badge-warm"> Awaiting Booking</span>
+              <span class="badge badge-warm">⏳ Awaiting Booking</span>
             {% else %}
-              <span class="badge">{{ meeting.status }}</span>
+              <span class="badge badge-cold">{{ meeting.status }}</span>
             {% endif %}
           </div>
         </div>
-        
-        <div class="flex gap-3" style="margin-top: 16px; flex-wrap: wrap;">
-          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
-            <span class="text-muted" style="font-size: 11px;">TIME</span>
-            <div style="font-weight: 600;">{% if meeting.meeting_time %}{{ meeting.meeting_time[:16] }}{% else %}To be booked{% endif %}</div>
+
+        <div class="flex gap-2" style="margin-top: 16px; flex-wrap: wrap;">
+          <div style="background: var(--surface-2); padding: 10px 14px; border-radius: 10px;">
+            <span class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;">Time</span>
+            <div style="font-weight: 600; font-size: 13.5px; margin-top: 2px;">{% if meeting.meeting_time %}{{ meeting.meeting_time[:16] }}{% else %}To be booked{% endif %}</div>
           </div>
-          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
-            <span class="text-muted" style="font-size: 11px;">EMAIL</span>
-            <div style="font-weight: 600;">{{ meeting.email }}</div>
+          <div style="background: var(--surface-2); padding: 10px 14px; border-radius: 10px;">
+            <span class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;">Email</span>
+            <div style="font-weight: 600; font-size: 13.5px; margin-top: 2px;">{{ meeting.email }}</div>
           </div>
           {% if meeting.phone %}
-          <div style="background: rgba(100,116,139,0.1); padding: 8px 12px; border-radius: 8px;">
-            <span class="text-muted" style="font-size: 11px;">PHONE</span>
-            <div style="font-weight: 600;">{{ meeting.phone }}</div>
+          <div style="background: var(--surface-2); padding: 10px 14px; border-radius: 10px;">
+            <span class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;">Phone</span>
+            <div style="font-weight: 600; font-size: 13.5px; margin-top: 2px;">{{ meeting.phone }}</div>
           </div>
           {% endif %}
         </div>
-        
+
         {% if meeting.meeting_link %}
-        <div style="margin-top: 12px;">
-          <a href="{{ meeting.meeting_link }}" target="_blank" class="btn btn-primary" style="background: #22c55e; font-size: 13px;">
+        <div style="margin-top: 14px;">
+          <a href="{{ meeting.meeting_link }}" target="_blank" class="btn btn-success" style="font-size: 13px;">
             Join Meeting
           </a>
         </div>
         {% endif %}
-        
+
         <div class="flex gap-2" style="margin-top: 16px;">
           <button type="button" onclick="rescheduleMeeting({{ meeting.id }})" class="btn btn-secondary">📅 Reschedule</button>
-          <button type="button" onclick="cancelMeeting({{ meeting.id }})" class="btn btn-secondary">❌ Cancel</button>
+          <button type="button" onclick="cancelMeeting({{ meeting.id }})" class="btn btn-secondary" style="color: var(--red); border-color: rgba(251,113,133,.3);">❌ Cancel</button>
           <a href="{{ url_for('lead_detail', lead_id=meeting.id) }}" class="btn btn-secondary">View Lead →</a>
         </div>
       </div>
       {% endfor %}
     </div>
   {% else %}
-    <div class="card" style="text-align: center; padding: 60px 24px;">
-      <div style="font-size: 48px; margin-bottom: 16px;"></div>
-      <h3 style="margin-bottom: 8px;">No meetings scheduled yet</h3>
-      <p style="color: var(--muted);">When leads book calls or you schedule meetings, they'll appear here.</p>
+    <div class="card empty-state">
+      <div style="font-size: 44px; margin-bottom: 12px;">📅</div>
+      <h3 style="margin-bottom: 8px; color: var(--text);">No meetings scheduled yet</h3>
+      <p>When leads book calls or you schedule meetings, they'll appear here.</p>
       <div class="flex gap-2" style="justify-content: center; margin-top: 24px;">
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
         <a href="{{ url_for('settings') }}" class="btn btn-secondary">Add Calendly Link</a>

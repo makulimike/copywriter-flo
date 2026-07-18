@@ -2,17 +2,17 @@
 
 {% block content %}
 <div class="container">
-  <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+  <div class="flex justify-between items-center" style="margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
     <div>
-      <h1 style="font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;">{{ campaign.name }}</h1>
-      <p style="color: var(--muted);">Industry: {{ campaign.industry }} | Created: {{ campaign.created_at[:10] }}</p>
+      <h1 style="font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.02em;">{{ campaign.name }}</h1>
+      <p class="text-muted" style="margin-top: 4px; font-size: 14px;">Industry: {{ campaign.industry }} &nbsp;·&nbsp; Created {{ campaign.created_at[:10] }}</p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2" style="flex-wrap: wrap;">
       <a href="{{ url_for('leads_upload', campaign_id=campaign.id) }}" class="btn btn-primary">+ Add Leads</a>
-     <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-primary" style="background: #3b82f6;">📍 Find Businesses (Free)</a>
+      <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-secondary" style="color: var(--blue); border-color: rgba(94,179,246,.35);">📍 Find Businesses (Free)</a>
       <form method="POST" action="{{ url_for('campaign_delete', campaign_id=campaign.id) }}" style="display: inline;" onsubmit="return confirm('Delete this campaign? All leads will be lost.');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-secondary" style="background: #450a0a; border-color: #7f1d1d;">Delete</button>
+        <button type="submit" class="btn btn-secondary" style="color: var(--red); border-color: rgba(251,113,133,.3);">Delete</button>
       </form>
     </div>
   </div>
@@ -20,24 +20,24 @@
   <div class="stats-grid">
     <div class="stat-card"><div class="label">Total Leads</div><div class="value">{{ stats.total_leads }}</div></div>
     <div class="stat-card"><div class="label" style="color: var(--accent);">Hot Leads (7+)</div><div class="value" style="color: var(--accent);">{{ stats.hot_leads }}</div></div>
-    <div class="stat-card"><div class="label">Messages Sent</div><div class="value" style="color: #22c55e;">{{ stats.messages_sent }}</div></div>
-    <div class="stat-card"><div class="label">Websites Analyzed</div><div class="value" style="color: #3b82f6;">{{ stats.websites_analyzed|default(0) }}</div></div>
+    <div class="stat-card green"><div class="label">Messages Sent</div><div class="value">{{ stats.messages_sent }}</div></div>
+    <div class="stat-card blue"><div class="label">Websites Analyzed</div><div class="value">{{ stats.websites_analyzed|default(0) }}</div></div>
   </div>
 
   {% if leads %}
-    <div style="margin-top: 32px;">
-      <div class="flex justify-between items-center" style="margin-bottom: 16px;">
-        <h2 style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700;">Leads</h2>
+    <div>
+      <div class="flex justify-between items-center" style="margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <h2 style="font-family: var(--font-display); font-size: 19px; font-weight: 700; letter-spacing: -0.01em;">Leads</h2>
         <div class="flex gap-2">
           <form method="POST" action="{{ url_for('process_campaign', campaign_id=campaign.id) }}" style="display: inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary" style="background: #22c55e;">🤖 Run AI Processing</button>
+            <button type="submit" class="btn btn-success">🤖 Run AI Processing</button>
           </form>
-          <button type="button" onclick="checkReplies()" class="btn btn-secondary" style="background: #3b82f6;">📧 Check for Replies</button>
+          <button type="button" onclick="checkReplies()" class="btn btn-secondary" style="color: var(--blue); border-color: rgba(94,179,246,.35);">📧 Check for Replies</button>
         </div>
       </div>
-      
-      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto;">
+
+      <div class="card" style="padding: 0; overflow-x: auto;">
         <table style="width: 100%;">
           <thead>
             <tr>
@@ -66,23 +66,23 @@
                 {% elif lead.score > 0 %}
                   <span class="badge badge-cold">❄️ {{ lead.score }}/10</span>
                 {% else %}
-                  <span class="badge">⏳ Pending</span>
+                  <span class="badge badge-cold">⏳ Pending</span>
                 {% endif %}
               </td>
               <td>
                 {% if lead.email_sent %}
-                  <span class="badge">📧 Sent</span>
+                  <span class="badge badge-success">📧 Sent</span>
                 {% else %}
                   <span class="badge badge-cold">⏳ Not sent</span>
                 {% endif %}
-                {% if lead.replied %} <span class="badge">💬 Replied</span>{% endif %}
+                {% if lead.replied %} <span class="badge badge-warm">💬 Replied</span>{% endif %}
               </td>
               <td>
                 {% if lead.website_analyzed %}
                   <div>
                     <span class="badge badge-success">✅ Analyzed</span>
                     {% if lead.website_issues %}
-                      <div class="text-muted" style="font-size: 11px; margin-top: 4px; max-width: 200px;">
+                      <div class="text-muted" style="font-size: 11px; margin-top: 6px; max-width: 200px;">
                         {{ lead.website_issues[:80] }}{% if lead.website_issues|length > 80 %}...{% endif %}
                       </div>
                     {% endif %}
@@ -100,7 +100,7 @@
                   <span class="badge badge-cold">❌ Not yet</span>
                 {% endif %}
               </td>
-              <td><a href="{{ url_for('lead_detail', lead_id=lead.id) }}" style="color: var(--accent);">View →</a></td>
+              <td><a href="{{ url_for('lead_detail', lead_id=lead.id) }}" style="color: var(--accent); font-weight: 600; text-decoration: none; font-size: 13px;">View →</a></td>
             </tr>
             {% endfor %}
           </tbody>
@@ -108,11 +108,11 @@
       </div>
     </div>
   {% else %}
-    <div style="text-align: center; padding: 60px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 32px;">
-      <p style="color: var(--muted); margin-bottom: 16px;">No leads yet. Upload a CSV file or search for free to get started.</p>
-      <div class="flex gap-2" style="justify-content: center;">
+    <div class="card empty-state">
+      <p style="margin-bottom: 20px;">No leads yet. Upload a CSV file or search for free to get started.</p>
+      <div class="flex gap-2" style="justify-content: center; flex-wrap: wrap;">
         <a href="{{ url_for('leads_upload', campaign_id=campaign.id) }}" class="btn btn-primary">Upload CSV</a>
-        <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-primary" style="background: #3b82f6;">📍 Find Businesses (Free)</a>
+        <a href="{{ url_for('business_search', campaign_id=campaign.id) }}" class="btn btn-secondary" style="color: var(--blue); border-color: rgba(94,179,246,.35);">📍 Find Businesses (Free)</a>
       </div>
     </div>
   {% endif %}

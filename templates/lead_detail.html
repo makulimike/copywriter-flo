@@ -3,62 +3,63 @@
 {% block content %}
 <div class="container">
   <div style="margin-bottom: 24px;">
-    <a href="{{ url_for('campaign_detail', campaign_id=lead.campaign_id) }}" style="color: var(--accent);"> Back to Campaign</a>
+    <a href="{{ url_for('campaign_detail', campaign_id=lead.campaign_id) }}" style="color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 600;">← Back to Campaign</a>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+  <div class="grid-2">
     <!-- Lead Info -->
     <div class="card">
-      <h2 style="font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Lead Information</h2>
-      <div style="margin-bottom: 12px;">
-        <div class="text-muted" style="font-size: 11px;">NAME</div>
-        <div style="font-size: 16px; font-weight: 600;">{{ lead.name }}</div>
+      <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.01em;">Lead Information</h2>
+      <div style="margin-bottom: 14px;">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">Name</div>
+        <div style="font-size: 16px; font-weight: 600; margin-top: 3px;">{{ lead.name }}</div>
       </div>
-      <div style="margin-bottom: 12px;">
-        <div class="text-muted" style="font-size: 11px;">COMPANY</div>
-        <div>{{ lead.company or '-' }}</div>
+      <div style="margin-bottom: 14px;">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">Company</div>
+        <div style="margin-top: 3px;">{{ lead.company or '-' }}</div>
       </div>
-      <div style="margin-bottom: 12px;">
-        <div class="text-muted" style="font-size: 11px;">EMAIL</div>
-        <div><a href="mailto:{{ lead.email }}" style="color: var(--accent);">{{ lead.email or '-' }}</a></div>
+      <div style="margin-bottom: 14px;">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">Email</div>
+        <div style="margin-top: 3px;"><a href="mailto:{{ lead.email }}" style="color: var(--accent); text-decoration: none;">{{ lead.email or '-' }}</a></div>
       </div>
-      <div style="margin-bottom: 12px;">
-        <div class="text-muted" style="font-size: 11px;">WEBSITE</div>
-        <div><a href="{{ lead.website }}" target="_blank" style="color: var(--accent);">{{ lead.website or '-' }}</a></div>
+      <div style="margin-bottom: 14px;">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">Website</div>
+        <div style="margin-top: 3px;"><a href="{{ lead.website }}" target="_blank" style="color: var(--accent); text-decoration: none;">{{ lead.website or '-' }}</a></div>
       </div>
-      <div style="margin-bottom: 12px;">
-        <div class="text-muted" style="font-size: 11px;">PHONE</div>
-        <div>{{ lead.phone or '-' }}</div>
+      <div style="margin-bottom: 4px;">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">Phone</div>
+        <div style="margin-top: 3px;">{{ lead.phone or '-' }}</div>
       </div>
-      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-        <div class="text-muted" style="font-size: 11px;">AI SCORE</div>
-        <div style="font-size: 32px; font-weight: 800; color: var(--accent);">{{ lead.score }}/10</div>
-        <div class="text-muted" style="font-size: 13px; margin-top: 8px;">{{ lead.score_reason or 'Not scored yet' }}</div>
+
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+        <div class="text-muted" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">AI Score</div>
+        <div style="font-size: 36px; font-weight: 800; font-family: var(--font-display); color: var(--accent); letter-spacing: -0.02em;">{{ lead.score }}/10</div>
+        <div class="text-muted" style="font-size: 13px; margin-top: 6px;">{{ lead.score_reason or 'Not scored yet' }}</div>
       </div>
-      
+
       <!-- Website Analysis Section -->
       {% if lead.website_analyzed %}
-      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-        <div class="text-muted" style="font-size: 11px; margin-bottom: 8px;"> AI WEBSITE ANALYSIS</div>
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+        <div class="text-muted mb-2" style="font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;">AI Website Analysis</div>
         {% if lead.website_issues %}
-        <div style="background: rgba(249,115,22,0.1); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-          <strong style="color: var(--accent);">Issues Found:</strong>
-          <p style="font-size: 13px; margin-top: 4px;">{{ lead.website_issues }}</p>
+        <div style="background: var(--accent-dim); border: 1px solid rgba(255,106,61,.25); padding: 14px; border-radius: 10px; margin-bottom: 12px;">
+          <strong style="color: var(--accent); font-size: 13px;">Issues Found</strong>
+          <p style="font-size: 13px; margin-top: 6px; color: var(--text);">{{ lead.website_issues }}</p>
         </div>
         {% endif %}
         {% if lead.website_recommendations %}
-        <div style="background: rgba(34,197,94,0.1); padding: 12px; border-radius: 8px;">
-          <strong style="color: #22c55e;">Recommendations:</strong>
-          <p style="font-size: 13px; margin-top: 4px;">{{ lead.website_recommendations }}</p>
+        <div style="background: var(--green-dim); border: 1px solid rgba(52,211,153,.25); padding: 14px; border-radius: 10px;">
+          <strong style="color: var(--green); font-size: 13px;">Recommendations</strong>
+          <p style="font-size: 13px; margin-top: 6px; color: var(--text);">{{ lead.website_recommendations }}</p>
         </div>
         {% endif %}
       </div>
       {% endif %}
-      
+
       {% if lead.meeting_scheduled %}
-      <div class="flash flash-success" style="margin-top: 16px;">
-        Meeting Scheduled!<br>
-        Link: <a href="{{ lead.meeting_link }}" target="_blank" style="color: var(--accent);">{{ lead.meeting_link }}</a><br>
+      <div class="flash flash-success" style="margin-top: 20px; display: block;">
+        <strong>Meeting Scheduled!</strong><br>
+        Link: <a href="{{ lead.meeting_link }}" target="_blank" style="color: var(--green); text-decoration: underline;">{{ lead.meeting_link }}</a><br>
         Time: {{ lead.meeting_time[:16] if lead.meeting_time else 'TBD' }}
       </div>
       {% endif %}
@@ -66,14 +67,16 @@
 
     <!-- Send Message -->
     <div class="card">
-      <h2 style="font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Send Outreach</h2>
-      
+      <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.01em;">Send Outreach</h2>
+
       {% if lead.email_sent %}
-        <div class="flash flash-success" style="margin-bottom: 16px;"> Email sent on {{ lead.email_sent_at[:10] if lead.email_sent_at else 'recently' }}</div>
-        {% if lead.opened %}<span class="badge">📖 Opened</span>{% endif %}
-        {% if lead.replied %} <span class="badge">💬 Replied</span>{% endif %}
+        <div class="flash flash-success mb-2" style="display: flex;">Email sent on {{ lead.email_sent_at[:10] if lead.email_sent_at else 'recently' }}</div>
+        <div class="flex gap-2 mb-2">
+          {% if lead.opened %}<span class="badge badge-cold">📖 Opened</span>{% endif %}
+          {% if lead.replied %}<span class="badge badge-success">💬 Replied</span>{% endif %}
+        </div>
       {% endif %}
-      
+
       <form id="sendForm">
         <div class="form-group">
           <label>Subject</label>
@@ -91,38 +94,38 @@
 
   <!-- Message History -->
   {% if messages %}
-  <div class="card" style="margin-top: 32px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Message History</h3>
+  <div class="card" style="margin-top: 24px;">
+    <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 12px;">Message History</h3>
     {% for msg in messages %}
-    <div style="padding: 12px; border-bottom: 1px solid var(--border);">
+    <div style="padding: 14px 0; border-bottom: 1px solid var(--border-soft);">
       <div class="flex justify-between items-center">
-        <strong>{{ msg.subject }}</strong>
+        <strong style="font-size: 14px;">{{ msg.subject }}</strong>
         <span class="text-muted" style="font-size: 12px;">{{ msg.sent_at[:16] if msg.sent_at else 'Pending' }}</span>
       </div>
       <div style="font-size: 13px; color: var(--muted); margin-top: 8px;">{{ msg.content[:200] }}...</div>
-      <div class="flex gap-2" style="margin-top: 8px;">
-        {% if msg.opened_at %}<span class="badge">📖 Opened</span>{% endif %}
-        {% if msg.replied_at %}<span class="badge">💬 Replied</span>{% endif %}
+      <div class="flex gap-2" style="margin-top: 10px;">
+        {% if msg.opened_at %}<span class="badge badge-cold">📖 Opened</span>{% endif %}
+        {% if msg.replied_at %}<span class="badge badge-success">💬 Replied</span>{% endif %}
       </div>
     </div>
     {% endfor %}
   </div>
   {% endif %}
-  
+
   <div class="card" style="margin-top: 16px;">
-    <h3 style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px;"> Schedule Meeting</h3>
+    <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 12px;">📅 Schedule Meeting</h3>
     {% if settings.meeting_link %}
-    <a href="{{ settings.meeting_link }}" target="_blank" class="btn btn-primary" style="background: #22c55e; width: 100%; text-align: center;">
-         Book a Call on Calendly
+    <a href="{{ settings.meeting_link }}" target="_blank" class="btn btn-success" style="width: 100%; text-align: center;">
+      Book a Call on Calendly
     </a>
-    <p class="text-muted" style="font-size: 12px; margin-top: 8px;">Your lead will be able to book directly without creating an account.</p>
+    <p class="text-muted" style="font-size: 12px; margin-top: 10px;">Your lead will be able to book directly without creating an account.</p>
     {% else %}
-    <button onclick="scheduleMeeting()" class="btn btn-primary" style="background: #22c55e; width: 100%;">
-         Generate Google Meet Link
+    <button onclick="scheduleMeeting()" class="btn btn-success" style="width: 100%;">
+      Generate Google Meet Link
     </button>
-    <p class="text-muted" style="font-size: 12px; margin-top: 8px;">
-        No Calendly link configured. 
-        <a href="{{ url_for('settings') }}" style="color: var(--accent);">Add your Calendly link in Settings</a>
+    <p class="text-muted" style="font-size: 12px; margin-top: 10px;">
+        No Calendly link configured.
+        <a href="{{ url_for('settings') }}" style="color: var(--accent); text-decoration: none; font-weight: 600;">Add your Calendly link in Settings</a>
     </p>
     {% endif %}
   </div>
@@ -161,10 +164,10 @@ document.getElementById('sendForm')?.addEventListener('submit', async (e) => {
   });
   const result = await response.json();
   if (result.success) {
-    document.getElementById('sendResult').innerHTML = '<div class="flash flash-success">✅ Email sent successfully!</div>';
+    document.getElementById('sendResult').innerHTML = '<div class="flash flash-success" style="display:flex;">✅ Email sent successfully!</div>';
     setTimeout(() => location.reload(), 2000);
   } else {
-    document.getElementById('sendResult').innerHTML = '<div class="flash flash-error">❌ ' + result.error + '</div>';
+    document.getElementById('sendResult').innerHTML = '<div class="flash flash-error" style="display:flex;">❌ ' + result.error + '</div>';
   }
 });
 </script>

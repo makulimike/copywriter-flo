@@ -1,12 +1,37 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 100px 24px; position: relative; overflow: hidden; }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 44px 40px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-lift);
+    position: relative;
+    z-index: 2;
+  }
+  .auth-mark { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .auth-mark .dot { width: 9px; height: 9px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); transform: rotate(45deg); box-shadow: 0 0 14px rgba(255,106,61,.6); }
+  .auth-mark span { font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  .auth-card h1 { font-family: var(--font-display); font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .auth-card > p.sub { color: var(--muted); text-align: center; font-size: 13.5px; margin-bottom: 32px; }
+  .auth-foot { text-align: center; margin-top: 22px; font-size: 13px; color: var(--muted); }
+  .auth-foot a { color: var(--accent); font-weight: 600; text-decoration: none; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 100px 24px;">
-  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 420px;">
-    <div style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; color: var(--accent); text-align: center; margin-bottom: 4px;">Copywriterflo</div>
-    <h1 style="font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 8px;">Welcome back</h1>
-    <p style="color: var(--muted); text-align: center; font-size: 14px; margin-bottom: 32px;">Sign in to your account</p>
-    
+<div class="auth-wrap">
+  <div class="bg-grid" style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:64px 64px;-webkit-mask-image:radial-gradient(ellipse 600px 500px at 50% 40%,#000 10%,transparent 75%);mask-image:radial-gradient(ellipse 600px 500px at 50% 40%,#000 10%,transparent 75%);"></div>
+  <div class="auth-card">
+    <div class="auth-mark"><span class="dot"></span><span>COPYWRITERFLO</span></div>
+    <h1>Welcome back</h1>
+    <p class="sub">Sign in to your account</p>
+
     <form method="POST">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
@@ -17,11 +42,9 @@
         <label>Password</label>
         <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In </button>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
     </form>
-    <p style="text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted);">
-      Don't have an account? <a href="{{ url_for('register') }}" style="color: var(--accent);">Create one</a>
-    </p>
+    <p class="auth-foot">Don't have an account? <a href="{{ url_for('register') }}">Create one</a></p>
   </div>
 </div>
 {% endblock %}
