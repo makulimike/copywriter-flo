@@ -92,7 +92,7 @@
       display: inline-block;
       transform: rotate(45deg);
     }
-    .nav-links { display: flex; gap: 2px; align-items: center; }
+    .nav-links { display: flex; gap: 2px; align-items: center; flex-wrap: wrap; }
     .nav-links a {
       color: var(--muted);
       text-decoration: none;
@@ -122,6 +122,35 @@
       font-family: var(--font-mono);
     }
 
+    /* Navbar Badge Styles */
+    .nav-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-left: 4px;
+      text-transform: uppercase;
+    }
+    .nav-badge-lifetime {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(52,211,153,0.3);
+    }
+    .nav-badge-trial {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid rgba(251,191,88,0.3);
+    }
+    .nav-badge-expired {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(251,113,133,0.3);
+    }
+
     /* ---------- Flash ---------- */
     .flash-container { padding: 108px 40px 0; max-width: 1200px; margin: 0 auto; }
     .flash {
@@ -142,6 +171,8 @@
     .flash-error::before { content: '✕'; }
     .flash-warning { background: var(--amber-dim); border: 1px solid rgba(251,191,88,0.3); color: var(--amber); }
     .flash-warning::before { content: '!'; }
+    .flash-info { background: var(--blue-dim); border: 1px solid rgba(94,179,246,0.3); color: var(--blue); }
+    .flash-info::before { content: 'ℹ'; }
 
     /* ---------- Buttons ---------- */
     .btn {
@@ -209,6 +240,7 @@
     .badge-warm { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251,191,88,0.3); }
     .badge-cold { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
     .badge-success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+    .badge-info { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(94,179,246,0.3); }
 
     /* ---------- Tables ---------- */
     table { width: 100%; border-collapse: collapse; }
@@ -297,15 +329,27 @@
   <nav class="navbar">
     <a href="/" class="nav-logo">Copywriterflo</a>
     <div class="nav-links">
-  <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
-<a href="{{ url_for('pricing') }}" class="{% if request.endpoint == 'pricing' %}active{% endif %}">
-  {% if session.user_id and user_has_lifetime_access(session.user_id) %}Lifetime{% else %}Buy Access{% endif %}
-</a>
-  <a href="{{ url_for('meetings') }}" class="{% if request.endpoint == 'meetings' %}active{% endif %}">Meetings</a>
-  <a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">Settings</a>
-  <a href="{{ url_for('logout') }}">Sign out</a>
-  <span class="user-name">{{ session.get('username', '') }}</span>
-</div>
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('pricing') }}" class="{% if request.endpoint == 'pricing' %}active{% endif %}">
+        {% if session.user_id and user_has_lifetime_access(session.user_id) %}Lifetime{% else %}Buy Access{% endif %}
+      </a>
+      <a href="{{ url_for('meetings') }}" class="{% if request.endpoint == 'meetings' %}active{% endif %}">Meetings</a>
+      <a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">Settings</a>
+      <a href="{{ url_for('logout') }}">Sign out</a>
+      
+      <!-- Access Badge -->
+      {% if session.user_id %}
+        {% if user_has_lifetime_access(session.user_id) %}
+          <span class="nav-badge nav-badge-lifetime">👑 Lifetime</span>
+        {% elif user_has_trial(session.user_id) %}
+          <span class="nav-badge nav-badge-trial">🎯 Trial</span>
+        {% else %}
+          <span class="nav-badge nav-badge-expired">⏳ Expired</span>
+        {% endif %}
+      {% endif %}
+      
+      <span class="user-name">{{ session.get('username', '') }}</span>
+    </div>
   </nav>
   {% else %}
   <nav class="navbar">

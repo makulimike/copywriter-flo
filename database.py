@@ -1,7 +1,7 @@
-# database.py - PostgreSQL Only (Updated with Intersend)
+# database.py - PostgreSQL Only (Updated with Trial Fields)
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -44,7 +44,7 @@ class Database:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Users table
+            # Users table with trial fields
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -55,6 +55,8 @@ class Database:
                     whatsapp_number TEXT,
                     telegram_chat_id TEXT,
                     meeting_link TEXT,
+                    trial_started_at TIMESTAMP,
+                    trial_ended_at TIMESTAMP,
                     created_at TIMESTAMP NOT NULL
                 )
             ''')
@@ -205,17 +207,21 @@ class Database:
             print("✅ Database tables created/verified")
     
     # ============================================
-    # USER METHODS
+    # USER METHODS (Updated with Trial)
     # ============================================
     
     def create_user(self, username, password, email, phone="", whatsapp_number=""):
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            created_at = datetime.now()
+            now = datetime.now()
+            trial_days = int(os.environ.get('TRIAL_DAYS', 3))
+            trial_end = now + timedelta(days=trial_days)
+            
             cursor.execute('''
-                INSERT INTO users (username, password, email, phone, whatsapp_number, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-            ''', (username, password, email, phone, whatsapp_number, created_at))
+                INSERT INTO users (username, password, email, phone, whatsapp_number, 
+                                   trial_started_at, trial_ended_at, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (username, password, email, phone, whatsapp_number, now, trial_end, now))
             user_id = cursor.fetchone()['id']
             
             cursor.execute('''
@@ -225,7 +231,7 @@ class Database:
             cursor.execute('''
                 INSERT INTO api_settings (user_id, auto_send_enabled, auto_send_score, google_meet_enabled, updated_at)
                 VALUES (%s, 0, 7, 0, %s) ON CONFLICT (user_id) DO NOTHING
-            ''', (user_id, datetime.now()))
+            ''', (user_id, now))
             return user_id
     
     def get_user_by_username(self, username):
@@ -241,6 +247,40 @@ class Database:
             cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))
             result = cursor.fetchone()
             return self._row_to_dict(result)
+    
+    def get_user_trial_status(self, user_id):
+        """Get trial status for a user"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT trial_started_at, trial_ended_at, created_at 
+                FROM users WHERE id = %s
+            ''', (user_id,))
+            result = cursor.fetchone()
+            if result:
+                return self._row_to_dict(result)
+            return None
+    
+    def is_trial_active(self, user_id):
+        """Check if user's trial is still active"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT trial_ended_at FROM users WHERE id = %s
+            ''', (user_id,))
+            result = cursor.fetchone()
+            if result and result['trial_ended_at']:
+                return datetime.now() < result['trial_ended_at']
+            return False
+    
+    def extend_trial(self, user_id, days=3):
+        """Extend trial by specified days"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            new_end = datetime.now() + timedelta(days=days)
+            cursor.execute('''
+                UPDATE users SET trial_ended_at = %s WHERE id = %s
+            ''', (new_end, user_id))
     
     # ============================================
     # API SETTINGS METHODS
@@ -612,7 +652,7 @@ class Database:
             return [self._row_to_dict(r) for r in results] if results else []
     
     # ============================================
-    # USER ACCESS METHODS
+    # USER ACCESS METHODS (Updated with Trial)
     # ============================================
     
     def user_has_lifetime_access(self, user_id):
@@ -623,6 +663,59 @@ class Database:
             if result:
                 return result['has_lifetime_access'] == 1
             return False
+    
+    def user_has_access(self, user_id):
+        """
+        Check if user has access (lifetime OR active trial)
+        """
+        # Check lifetime access first
+        if self.user_has_lifetime_access(user_id):
+            return True
+        
+        # Check trial
+        return self.is_trial_active(user_id)
+    
+    def get_access_status(self, user_id):
+        """
+        Get detailed access status for a user
+        Returns: dict with access type and expiry info
+        """
+        # Check lifetime access
+        if self.user_has_lifetime_access(user_id):
+            return {
+                'has_access': True,
+                'access_type': 'lifetime',
+                'message': 'Lifetime access - unlimited'
+            }
+        
+        # Check trial
+        trial_status = self.get_user_trial_status(user_id)
+        if trial_status and trial_status.get('trial_ended_at'):
+            now = datetime.now()
+            trial_end = trial_status['trial_ended_at']
+            if now < trial_end:
+                days_left = (trial_end - now).days
+                hours_left = (trial_end - now).seconds // 3600
+                return {
+                    'has_access': True,
+                    'access_type': 'trial',
+                    'days_left': days_left,
+                    'hours_left': hours_left,
+                    'expires_at': trial_end,
+                    'message': f'Trial access - {days_left} days left' if days_left > 0 else f'Trial access - {hours_left} hours left'
+                }
+            else:
+                return {
+                    'has_access': False,
+                    'access_type': 'expired',
+                    'message': 'Trial expired - Please purchase lifetime access'
+                }
+        
+        return {
+            'has_access': False,
+            'access_type': 'none',
+            'message': 'No access - Please purchase lifetime access or start a trial'
+        }
     
     def grant_lifetime_access(self, user_id, payment_id=None):
         with self.get_connection() as conn:

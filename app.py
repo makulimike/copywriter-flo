@@ -1,4 +1,4 @@
-# app.py - Updated with Intersend Card Payment Integration
+# app.py - Updated with Intersend Card Payment Integration & Free Trial
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask_wtf.csrf import CSRFProtect
@@ -67,9 +67,18 @@ CURRENCY = os.environ.get('CURRENCY', 'USD')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
 INTERSEND_ENABLED = os.environ.get("INTERSEND_ENABLED", "True").lower() == "true"
 
+# ============================================
+# TRIAL CONFIGURATION
+# ============================================
+TRIAL_DAYS = int(os.environ.get('TRIAL_DAYS', 3))
+
 def user_has_lifetime_access(user_id):
     """Check if user has lifetime access"""
     return intersend_payment.user_has_lifetime_access(user_id)
+
+def user_has_access(user_id):
+    """Check if user has access (lifetime OR active trial)"""
+    return db.user_has_access(user_id)
 
 # ============================================
 # MAKE FUNCTIONS AVAILABLE TO ALL TEMPLATES
@@ -81,7 +90,23 @@ def utility_processor():
         if user_id:
             return user_has_lifetime_access(user_id)
         return False
-    return dict(user_has_lifetime_access=check_lifetime_access)
+    
+    def check_trial_active(user_id):
+        if user_id:
+            return db.is_trial_active(user_id)
+        return False
+    
+    def get_access_status(user_id):
+        if user_id:
+            return db.get_access_status(user_id)
+        return {'has_access': False, 'access_type': 'none', 'message': 'No access'}
+    
+    return dict(
+        user_has_lifetime_access=check_lifetime_access,
+        user_has_trial=check_trial_active,
+        get_access_status=get_access_status,
+        TRIAL_DAYS=TRIAL_DAYS
+    )
 
 # Create a decorator to check payment before accessing paid features
 def require_payment(f):
@@ -91,8 +116,14 @@ def require_payment(f):
             flash('Please login first', 'warning')
             return redirect(url_for('login'))
         
-        if not user_has_lifetime_access(session['user_id']):
-            flash('You need to purchase lifetime access ($280 one-time) to create campaigns. Pay once, use forever!', 'warning')
+        # Check if user has access (lifetime OR trial)
+        access_status = db.get_access_status(session['user_id'])
+        
+        if not access_status['has_access']:
+            if access_status['access_type'] == 'expired':
+                flash('⚠️ Your free trial has expired. Purchase lifetime access to continue using the system.', 'warning')
+            else:
+                flash('You need to purchase lifetime access ($280 one-time) or start a free trial to create campaigns.', 'warning')
             return redirect(url_for('pricing'))
         
         return f(*args, **kwargs)
@@ -1371,10 +1402,22 @@ Login to your dashboard to see full details and take action."""
 def pricing():
     has_access = False
     payment_info = None
+    access_status = None
+    trial_active = False
+    trial_days_left = 0
     
     if 'user_id' in session:
         has_access = user_has_lifetime_access(session['user_id'])
         payment_info = intersend_payment.get_payment_info(session['user_id'])
+        access_status = db.get_access_status(session['user_id'])
+        trial_active = db.is_trial_active(session['user_id'])
+        
+        # Calculate trial days left
+        trial_info = db.get_user_trial_status(session['user_id'])
+        if trial_info and trial_info.get('trial_ended_at'):
+            now = datetime.now()
+            if now < trial_info['trial_ended_at']:
+                trial_days_left = (trial_info['trial_ended_at'] - now).days
     
     return render_template('pricing.html', 
                          price=CAMPAIGN_PRICE,
@@ -1382,7 +1425,11 @@ def pricing():
                          has_access=has_access,
                          payment_info=payment_info,
                          intersend_enabled=INTERSEND_ENABLED,
-                         supported_currencies=intersend_payment.supported_currencies)
+                         supported_currencies=intersend_payment.supported_currencies,
+                         access_status=access_status,
+                         trial_active=trial_active,
+                         trial_days_left=trial_days_left,
+                         TRIAL_DAYS=TRIAL_DAYS)
 
 @app.route('/create-intersend-payment', methods=['POST'])
 @login_required
@@ -1432,10 +1479,10 @@ def intersend_callback(order_id):
         return redirect(url_for('pricing'))
     
     if payment['status'] == 'completed':
-        flash('Payment confirmed! Your lifetime access is now active.', 'success')
+        flash('🎉 Payment confirmed! Your lifetime access is now active.', 'success')
         return redirect(url_for('dashboard'))
     elif payment['status'] == 'pending':
-        flash('Payment is still being processed. You will receive confirmation shortly.', 'info')
+        flash('⏳ Payment is still being processed. You will receive confirmation shortly.', 'info')
         return redirect(url_for('pricing'))
     else:
         flash('Payment failed or was cancelled. Please try again.', 'error')
@@ -1491,7 +1538,7 @@ def payment_status(order_id):
 @app.route('/payment-success')
 def payment_success():
     """Payment success page"""
-    flash('Payment confirmed! Your lifetime access is now active.', 'success')
+    flash('🎉 Payment confirmed! Your lifetime access is now active.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/payment-cancel')
@@ -1499,6 +1546,44 @@ def payment_cancel():
     """Payment cancelled page"""
     flash('Payment cancelled. You can purchase lifetime access when ready.', 'warning')
     return redirect(url_for('pricing'))
+
+# ============================================
+# TRIAL ROUTES
+# ============================================
+
+@app.route('/start-trial', methods=['POST'])
+@login_required
+def start_trial():
+    """Start a free trial for the user"""
+    user_id = session['user_id']
+    
+    # Check if user already has access
+    if db.user_has_access(user_id):
+        flash('You already have access to the system.', 'info')
+        return redirect(url_for('dashboard'))
+    
+    # Start trial
+    trial_days = int(os.environ.get('TRIAL_DAYS', 3))
+    db.extend_trial(user_id, trial_days)
+    
+    flash(f'🎉 Free trial started! You have {trial_days} days to use the system.', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/trial-status')
+@login_required
+def trial_status():
+    """Get trial status for the current user"""
+    user_id = session['user_id']
+    access_status = db.get_access_status(user_id)
+    
+    return jsonify({
+        'has_access': access_status['has_access'],
+        'access_type': access_status['access_type'],
+        'message': access_status['message'],
+        'days_left': access_status.get('days_left', 0),
+        'hours_left': access_status.get('hours_left', 0),
+        'expires_at': access_status.get('expires_at')
+    })
 
 # ============================================
 # HEALTH CHECK ENDPOINT
@@ -1646,7 +1731,7 @@ def register():
 
         hashed_pw = hash_password(password)
         db.create_user(username, hashed_pw, user_email)
-        flash('Registration successful! Please login.', 'success')
+        flash('✅ Registration successful! Please login to start your free trial.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -1666,7 +1751,13 @@ def login():
             session['username'] = user['username']
             session.permanent = True
             init_global_openai_client()
-            flash('Login successful!', 'success')
+            
+            # Check if user has access
+            if db.user_has_access(user['id']):
+                flash(f'Welcome back, {username}!', 'success')
+            else:
+                flash(f'👋 Welcome, {username}! Start your free trial to access the system.', 'info')
+            
             return redirect(next_url)
 
         flash('Invalid credentials', 'error')
@@ -1794,6 +1885,7 @@ def settings():
 def dashboard():
     user = db.get_user(session['user_id'])
     campaigns = db.get_user_campaigns(session['user_id'])
+    access_status = db.get_access_status(session['user_id'])
 
     stats = []
     total_leads = total_hot = total_sent = total_replies = total_meetings = total_websites_analyzed = 0
@@ -1821,6 +1913,8 @@ def dashboard():
         total_replies=total_replies,
         total_meetings=total_meetings,
         total_websites_analyzed=total_websites_analyzed,
+        access_status=access_status,
+        TRIAL_DAYS=TRIAL_DAYS
     )
 
 @app.route('/campaign/new', methods=['GET', 'POST'])
@@ -2204,6 +2298,7 @@ if __name__ == '__main__':
     print("✅ Meeting Management: Ready")
     print("✅ Global OpenAI client: Single key from environment")
     print(f"✅ Payment Integration: {'Intersend (Card Payments)' if INTERSEND_ENABLED else 'Disabled'}")
+    print(f"✅ Free Trial: {TRIAL_DAYS} days")
     print("=" * 60)
     print("🌐 Server running at: http://localhost:5000")
     print("📱 Production URL: " + APP_URL)

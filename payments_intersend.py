@@ -1,4 +1,4 @@
-# payments_intersend.py - IntaSend Payment Integration (Final Fix)
+# payments_intersend.py - IntaSend Payment Integration (Production Ready)
 
 import os
 import smtplib
@@ -14,10 +14,10 @@ db = Database()
 
 class IntersendPayment:
     def __init__(self):
-        # Get environment from .env
-        self.environment = os.environ.get('INTERSEND_ENVIRONMENT', 'sandbox')
+        # Get environment from .env (default to live for production)
+        self.environment = os.environ.get('INTERSEND_ENVIRONMENT', 'live')
         
-        # Set API URL based on environment - Using the correct domain
+        # Set API URL based on environment
         if self.environment == 'sandbox':
             self.api_url = 'https://sandbox.intasend.com/'
         else:
@@ -162,6 +162,7 @@ class IntersendPayment:
                     if response.status_code == 401:
                         print("🔑 Authentication failed - please verify your API key is correct and active")
                         print("💡 If using sandbox, ensure you're using keys from: https://sandbox.intasend.com/account/api-keys/")
+                        print("💡 If using live, ensure you're using keys from: https://payment.intasend.com/account/api-keys/")
                     return {'success': False, 'error': error_msg, 'data': result}
                 print(f"✅ Request successful")
                 return {'success': True, 'data': result}
