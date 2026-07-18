@@ -1,4 +1,4 @@
-# payments_intersend.py - IntaSend Payment Integration (Production Ready)
+# payments_intersend.py - IntaSend Payment Integration (No QR Code)
 
 import os
 import smtplib
@@ -14,7 +14,7 @@ db = Database()
 
 class IntersendPayment:
     def __init__(self):
-        # Get environment from .env (default to live for production)
+        # Get environment from .env
         self.environment = os.environ.get('INTERSEND_ENVIRONMENT', 'live')
         
         # Set API URL based on environment
@@ -50,12 +50,6 @@ class IntersendPayment:
         self.currency_symbols = {
             'USD': '$', 'EUR': '€', 'GBP': '£',
             'NGN': '₦', 'KES': 'KSh', 'ZAR': 'R'
-        }
-        
-        # Currency flags for display
-        self.currency_flags = {
-            'USD': '🇺🇸', 'EUR': '🇪🇺', 'GBP': '🇬🇧',
-            'NGN': '🇳🇬', 'KES': '🇰🇪', 'ZAR': '🇿🇦'
         }
         
         # Startup banner
@@ -119,19 +113,14 @@ class IntersendPayment:
             return False
     
     def _make_request(self, method, endpoint, data=None):
-        """
-        Make authenticated request to IntaSend API
-        Uses the correct Bearer token authentication
-        """
+        """Make authenticated request to IntaSend API"""
         if not self.secret_key:
             return {'success': False, 'error': 'Secret key not configured'}
         
-        # Ensure URL has correct format
         base_url = self.api_url.rstrip('/')
         endpoint = endpoint.lstrip('/')
         url = f"{base_url}/{endpoint}"
         
-        # Correct authentication headers
         headers = {
             'Authorization': f'Bearer {self.secret_key}',
             'Content-Type': 'application/json',
@@ -153,16 +142,11 @@ class IntersendPayment:
             
             print(f"📥 Status: {response.status_code}")
             
-            # Try to parse JSON response
             try:
                 result = response.json()
                 if response.status_code >= 400:
                     error_msg = result.get('message') or result.get('error') or result.get('detail') or str(response.status_code)
                     print(f"❌ Error: {error_msg}")
-                    if response.status_code == 401:
-                        print("🔑 Authentication failed - please verify your API key is correct and active")
-                        print("💡 If using sandbox, ensure you're using keys from: https://sandbox.intasend.com/account/api-keys/")
-                        print("💡 If using live, ensure you're using keys from: https://payment.intasend.com/account/api-keys/")
                     return {'success': False, 'error': error_msg, 'data': result}
                 print(f"✅ Request successful")
                 return {'success': True, 'data': result}
@@ -180,9 +164,7 @@ class IntersendPayment:
             return {'success': False, 'error': error_msg}
     
     def create_payment(self, user_id, user_email, currency='USD', **kwargs):
-        """
-        Create an IntaSend payment for card processing
-        """
+        """Create an IntaSend payment for card processing"""
         if not self.intersend_enabled:
             return {'success': False, 'error': 'Payments are disabled'}
         
@@ -195,19 +177,15 @@ class IntersendPayment:
         if not self.secret_key:
             return {'success': False, 'error': 'IntaSend API not configured'}
         
-        # Create order ID
         order_id = f"ORDER-{user_id}-{int(datetime.now().timestamp())}"
         
-        # Get user info
         user = self.db.get_user(user_id)
         user_username = user.get('username', 'User') if user else 'User'
         
-        # Split name into first and last name
         name_parts = user_username.split(' ', 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ''
         
-        # Prepare payment data - Matches the curl example
         payment_data = {
             'first_name': first_name,
             'last_name': last_name,
@@ -220,7 +198,6 @@ class IntersendPayment:
             'webhook_url': f"{self.app_url}/webhook/intersend",
         }
         
-        # Correct endpoint - matches the curl example
         endpoint = 'api/v1/checkout/'
         print(f"🔄 Trying endpoint: {endpoint}")
         response = self._make_request('POST', endpoint, payment_data)
@@ -234,26 +211,17 @@ class IntersendPayment:
         data = response['data']
         print(f"📦 Response: {json.dumps(data, indent=2)[:500]}...")
         
-        # Extract checkout URL from the response
+        # Extract checkout URL
         checkout_url = None
         if isinstance(data, dict):
-            if 'checkout_url' in data:
-                checkout_url = data['checkout_url']
-            elif 'url' in data:
-                checkout_url = data['url']
-            elif 'redirect_url' in data:
-                checkout_url = data['redirect_url']
-            elif 'payment_link' in data:
-                checkout_url = data['payment_link']
-            elif 'data' in data and isinstance(data['data'], dict):
+            checkout_url = data.get('checkout_url') or data.get('url') or data.get('redirect_url') or data.get('payment_link')
+            if 'data' in data and isinstance(data['data'], dict):
                 checkout_url = data['data'].get('checkout_url') or data['data'].get('url')
         
-        # Get provider payment ID
         provider_payment_id = None
         if isinstance(data, dict):
             provider_payment_id = data.get('id') or data.get('payment_id') or data.get('transaction_id') or order_id
         
-        # Save payment to database
         payment_id = self.db.save_intersend_payment(
             user_id=user_id,
             order_id=order_id,
@@ -265,11 +233,8 @@ class IntersendPayment:
             payment_method='card'
         )
         
-        # Send confirmation email
         if checkout_url:
             self._send_payment_email(user_email, user_username, order_id, checkout_url, currency)
-        else:
-            self._send_payment_email_no_checkout(user_email, user_username, order_id, currency)
         
         return {
             'success': True,
@@ -341,33 +306,6 @@ Copywriterflo Team
         
         self._send_email(user_email, f'💳 Complete Your Payment — Order {order_id}', body, html_body)
     
-    def _send_payment_email_no_checkout(self, user_email, username, order_id, currency):
-        """Send payment instructions email without checkout link"""
-        symbol = self.currency_symbols.get(currency, '$')
-        env_label = "🧪 TEST" if self.environment == 'sandbox' else "🔒 LIVE"
-        
-        body = f"""Hi {username},
-
-Your payment request for Copywriterflo Lifetime Access has been created.
-
-{env_label}
-💰 Amount: {symbol}{self.price_amount} {currency}
-📋 Order ID: {order_id}
-
-Please check your IntaSend dashboard to complete the payment.
-
-This is a one-time payment for lifetime access.
-
-Best regards,
-Copywriterflo Team
-"""
-        
-        self._send_email(
-            user_email, 
-            f'💳 Payment Created — Order {order_id}', 
-            body
-        )
-    
     def confirm_payment(self, provider_payment_id, status, transaction_id=None):
         """Confirm payment status from webhook/callback"""
         payment = self.db.get_intersend_payment_by_provider_id(provider_payment_id)
@@ -379,13 +317,9 @@ Copywriterflo Team
             return {'success': True, 'message': 'Already completed'}
         
         if status in ['completed', 'success', 'paid']:
-            # Complete the payment
             self.db.complete_intersend_payment(provider_payment_id, transaction_id)
-            
-            # Grant lifetime access
             self.db.grant_lifetime_access(payment['user_id'], payment['id'])
             
-            # Send confirmation email
             user = self.db.get_user(payment['user_id'])
             if user:
                 user_email = user.get('email')
@@ -422,7 +356,6 @@ Copywriterflo Team
             self.db.update_intersend_payment_status(provider_payment_id, status)
             return {'success': True, 'message': f'Payment {status}'}
         
-        # For 'pending' or other statuses, just update
         self.db.update_intersend_payment_status(provider_payment_id, status)
         return {'success': True, 'message': f'Status updated to {status}'}
     
