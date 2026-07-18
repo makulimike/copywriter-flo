@@ -26,11 +26,13 @@ qrcode==7.4.2
 # Email Validation
 email-validator==2.1.0
 
-# Production Server (CRITICAL for Render)
+# Production Server
 gunicorn==21.2.0
 
 # Other dependencies
 itsdangerous==2.1.2
 MarkupSafe==2.1.5
 WTForms==3.1.0
-Pillow==10.3.0
+
+# Pillow - Updated to a version compatible with Python 3.14
+Pillow==10.4.0
